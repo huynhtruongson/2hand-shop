@@ -19,6 +19,6 @@ RUN cd ./internal/services/identity && go mod download
 
 WORKDIR /workspace/internal/services/identity
 
-EXPOSE 8010
+EXPOSE 8081
 
 CMD ["air"]

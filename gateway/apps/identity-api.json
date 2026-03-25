@@ -17,7 +17,7 @@
     },
     "proxy": {
         "listen_path": "/api/v1/identity",
-        "target_url": "http://identity-service:8010",
+        "target_url": "http://identity-service:8081",
         "strip_listen_path": true
     },
     "cors": {

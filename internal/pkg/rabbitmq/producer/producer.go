@@ -2,7 +2,6 @@ package producer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -43,13 +42,7 @@ func (r *rabbitMQProducer) PublishMessage(ctx context.Context, exchange, routing
 	confirms := make(chan amqp091.Confirmation, 1)
 	channel.NotifyPublish(confirms)
 
-	publishing := msg.PublishingBuilder.Build()
-	body, err := json.Marshal(msg.Data)
-	if err != nil {
-		return err
-	}
-	publishing.Body = body
-	publishing.AppId = r.config.AppId
+	publishing := msg.ToPublishing(r.config.AppId)
 
 	if err := channel.PublishWithContext(
 		ctx,
@@ -57,7 +50,7 @@ func (r *rabbitMQProducer) PublishMessage(ctx context.Context, exchange, routing
 		routingKey,
 		true,
 		false,
-		*publishing,
+		publishing,
 	); err != nil {
 		return err
 	}

@@ -91,7 +91,7 @@ services:
       # Isolate the tmp dir so host and container don't share build artifacts
       - /workspace/internal/services/identity/tmp
     ports:
-      - "8010:8010"
+      - "8081:8081"
 
 volumes:
   postgres_data:

@@ -9,6 +9,7 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/message"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -168,22 +169,33 @@ func (r *rabbitMQConsumer) reConsumeOnDropConnection(ctx context.Context) {
 	}()
 }
 
-func (r *rabbitMQConsumer) handleReceiveMessage(ctx context.Context, msg *amqp091.Delivery) {
+func (r *rabbitMQConsumer) handleReceiveMessage(ctx context.Context, raw *amqp091.Delivery) {
+	msg := message.NewDeliveryMessage(raw)
+	meta := msg.Metadata()
+
 	err := retry.Do(func() error {
 		return r.handler(ctx, msg)
 	}, append(retryOptions, retry.Context(ctx))...)
+
 	if err != nil {
-		r.logger.Error("[rabbitMQConsumer.Handle] error in handling consume message of RabbitmqMQ, prepare for nacking message")
-		if r.config.AutoAck == false {
-			if err := msg.Nack(false, true); err != nil {
-				r.logger.Error("error in sending Nack to RabbitMQ consumer", "error", err)
+		r.logger.Error(
+			"consumer: handler failed after retries, nacking message",
+			"consumer", r.config.Name,
+			"message_id", meta.ID,
+			"message_type", meta.Type,
+			"error", err,
+		)
+
+		if !r.config.AutoAck {
+			if nackErr := raw.Nack(false, true); nackErr != nil {
+				r.logger.Error("consumer: nack failed", "error", nackErr)
 				return
 			}
 		}
 	} else {
-		if r.config.AutoAck == false {
-			if err := msg.Ack(false); err != nil {
-				r.logger.Error("error in sending Ack to RabbitMQ consumer", "error", err)
+		if !r.config.AutoAck {
+			if ackErr := raw.Ack(false); ackErr != nil {
+				r.logger.Error("consumer: ack failed", "error", ackErr)
 				return
 			}
 		}

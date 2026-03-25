@@ -66,7 +66,7 @@ COPY --from=builder ./workspace/bin/app       ./app
 COPY --from=builder ./workspace/bin/migration ./migration
 
 # Expose the default service port
-EXPOSE 8010
+EXPOSE 8081
 
 # Default command runs the API server.
 # Override with "migration" to run database migrations:

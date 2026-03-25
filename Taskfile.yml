@@ -13,9 +13,9 @@ tasks:
     cmd: docker compose -f {{.COMPOSE_FILE}} down
 
   migrate-up:
-    desc: Run database migrations UP, example:task migrate-up SERVICE=identity-service
+    desc: Run database migrations UP, e.g. task migrate-up SERVICE=identity-service
     cmd: docker compose -f {{.COMPOSE_FILE}} run --rm {{.SERVICE}} go run ./cmd/migration up
 
   migrate-down:
-    desc: Run database migrations DOWN, example:task migrate-down SERVICE=identity-service
+    desc: Run database migrations DOWN, e.g. task migrate-down SERVICE=identity-service
     cmd: docker compose -f {{.COMPOSE_FILE}} run --rm {{.SERVICE}} go run ./cmd/migration down
