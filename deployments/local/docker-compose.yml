@@ -1,0 +1,98 @@
+name: 2hand-shop
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../scripts/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: no
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # rabbitmq:
+  #   image: rabbitmq:3-management-alpine
+  #   restart: no
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+  #     RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+  #     RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+  #   ports:
+  #     - "5672:5672" # AMQP
+  #     - "15672:15672" # Management UI
+  #   volumes:
+  #     - rabbitmq_data:/var/lib/rabbitmq
+  #   healthcheck:
+  #     test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # ===========================================================================
+  # Tyk Gateway (file-based, no Dashboard)
+  # API definitions are loaded from ./gateway/apps/ at startup.
+  # To reload after changing app configs:
+  #   docker compose restart tyk-gateway
+  # ===========================================================================
+
+  tyk-gateway:
+    image: tykio/tyk-gateway:latest
+    restart: no
+    depends_on:
+      redis:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+    environment:
+      TYK_GW_SECRET: ${TYK_SECRET:-tyk-secret}
+    volumes:
+      - ../../gateway/tyk.conf:/opt/tyk-gateway/tyk.conf:ro
+      - ../../gateway/apps:/opt/tyk-gateway/apps:ro
+    ports:
+      - "8080:8080"
+
+  identity-service:
+    image: identity-service
+    build:
+      context: ../..
+      dockerfile: internal/services/identity/Dockerfile.local
+    restart: no
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../../internal/services/identity/.env:/config/.env:ro
+      - ../../migrations/identity:/migrations:ro
+        # Mount only identity service
+      - ../../internal/services/identity:/workspace/internal/services/identity
+      # Mount shared pkg
+      - ../../internal/pkg:/workspace/internal/pkg
+      # Isolate the tmp dir so host and container don't share build artifacts
+      - /workspace/internal/services/identity/tmp
+    ports:
+      - "8010:8010"
+
+volumes:
+  postgres_data:
+  redis_data:

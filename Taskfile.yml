@@ -1,0 +1,21 @@
+version: '3'
+
+vars:
+  COMPOSE_FILE: deployments/local/docker-compose.yml
+
+tasks:
+  up:
+    desc: Start all services
+    cmd: docker compose -f {{.COMPOSE_FILE}} up
+
+  down:
+    desc: Shutdown all services
+    cmd: docker compose -f {{.COMPOSE_FILE}} down
+
+  migrate-up:
+    desc: Run database migrations UP, example:task migrate-up SERVICE=identity-service
+    cmd: docker compose -f {{.COMPOSE_FILE}} run --rm {{.SERVICE}} go run ./cmd/migration up
+
+  migrate-down:
+    desc: Run database migrations DOWN, example:task migrate-down SERVICE=identity-service
+    cmd: docker compose -f {{.COMPOSE_FILE}} run --rm {{.SERVICE}} go run ./cmd/migration down
