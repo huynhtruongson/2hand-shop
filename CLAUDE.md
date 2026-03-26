@@ -238,18 +238,6 @@ NewAppError(KindNotFound, "LISTING_NOT_FOUND", "listing not found").
 | `KindInternal` | 500 |
 | `KindRateLimit` | 429 |
 
-### User-Facing Response
-
-`UserFacing()` returns a sanitised `UserError` safe for HTTP responses — internal details and cause are never exposed:
-
-```go
-type UserError struct {
-    Code    string            `json:"code"`
-    Message string            `json:"message"`
-    Details map[string]string `json:"details,omitempty"`
-}
-```
-
 ### Error Response Body
 
 ```json
