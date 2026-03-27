@@ -17,24 +17,25 @@ This spec defines the product domain model in the Catalog Service for a second-h
   - `Name` (string, non-empty) — product title/name
   - `Description` (string) — free-text description
   - `Category` (enum: `clothes`, `accessories`, `shoes`) — only these three values are allowed
-  - `Image` (URL or attachment) — primary product image; additional images supported
+  - `Images` (array of URL strings, min 1, max 10) — product images
   - `Size` (string, free text) — e.g. "M", "42", "One Size"
   - `Gender` (enum: `unisex`, `male`, `female`) — intended gender audience
   - `Condition` (enum: `new`, `like_new`, `good`, `fair`, `poor`) — quality grade
   - `Price` (decimal, positive) — selling price in the shop's currency
   - `Brand` (string) — brand name; free text (empty allowed)
   - `OwnerID` (UUID) — references the admin user who owns/controls this product
-  - `Status` (enum: `active`, `sold`, `archived`) — lifecycle state
+  - `Status` (enum: `unpublished`, `published`, `sold`) — lifecycle state
   - `CreatedAt`, `UpdatedAt` (timestamps)
-- A `Product` can only be mutated (updated, archived) by its owning admin.
-- Status transitions for `Product`: `active` → `sold` | `archived`. No backward transitions.
+- A `Product` can only be mutated (updated, unpublished, published, sold) by its owning admin.
+- Status transitions for `Product`: `unpublished` → `published` → `sold`. No backward transitions.
+- Soft delete is used: a `Product` is never hard-deleted; it is moved to `sold` or kept in `unpublished`/`published`.
 
 ### SellRequest Aggregate
 
 - A `SellRequest` is a client-initiated intent to sell an item to the shop.
 - A `SellRequest` must have the following fields:
   - `ID` (UUID) — unique identifier
-  - `ProductDetails` (embedded/nested object) — mirrors the product fields: `Name`, `Description`, `Category`, `Image`, `Size`, `Gender`, `Condition`, `ExpectedPrice`, `Brand`
+  - `ProductDetails` (embedded/nested object) — mirrors the product fields: `Name`, `Description`, `Category`, `Images`, `Size`, `Gender`, `Condition`, `ExpectedPrice`, `Brand`
   - `ContactInfo` — client's contact details: `Name`, `Email`, `Phone` (at least one required)
   - `RequesterID` (UUID) — the client user who submitted the request
   - `Status` (enum: `pending`, `approved`, `rejected`) — lifecycle state
@@ -45,7 +46,7 @@ This spec defines the product domain model in the Catalog Service for a second-h
 ### SellRequest Lifecycle
 
 - A `SellRequest` starts in `pending` status.
-- **Approved path**: Admin reviews and approves the request. A new `Product` is created from the request's `ProductDetails`. The `Product.Price` is set by the admin (not necessarily equal to `ExpectedPrice`). The admin becomes the `OwnerID` of the new `Product`. The `SellRequest` transitions to `approved`.
+- **Approved path**: Admin reviews and approves the request. A new `Product` is created from the request's `ProductDetails`. The `Product.Price` is set by the admin (not necessarily equal to `ExpectedPrice`). The admin becomes the `OwnerID` of the new `Product`. The `Product` starts in `unpublished` status (admin publishes it manually). The `SellRequest` transitions to `approved`.
 - **Rejected path**: Admin rejects the request with an optional reason. The `SellRequest` transitions to `rejected`. A rejected `SellRequest` is a **dead end** — it cannot be reopened or edited. The client must submit a new `SellRequest` if they wish to try again.
 - Once in `approved` or `rejected`, a `SellRequest` is immutable.
 
@@ -53,7 +54,7 @@ This spec defines the product domain model in the Catalog Service for a second-h
 
 - Admin can create a `Product` directly (without a `SellRequest`) — for shop-owned inventory.
 - Admin can update an existing `Product` (name, description, price, status, etc.).
-- Admin can archive or mark a `Product` as `sold`.
+- Admin can publish, unpublish, or mark a `Product` as `sold`.
 - Admin can list all `SellRequest`s (with filter by status).
 - Admin can approve a `pending` `SellRequest` (supplying the final price and additional product details).
 - Admin can reject a `pending` `SellRequest` (supplying an optional reason).
@@ -69,7 +70,7 @@ This spec defines the product domain model in the Catalog Service for a second-h
 
 ## Possible Edge Cases
 
-- Client submits a `SellRequest` for a `Category` not in the allowed set — validation rejects the request.
+- Client submits a `SellRequest` with fewer than 1 or more than 10 images — validation rejects the request.
 - Admin approves a `SellRequest` but sets `Price` to zero or negative — validation prevents this.
 - Client attempts to cancel a `SellRequest` that is already `approved` or `rejected` — operation is denied.
 - Admin approves a `SellRequest` but the same `RequesterID` already has an `active` `SellRequest` for a nearly identical item — no automatic duplicate detection; admin must judge manually.
@@ -82,19 +83,20 @@ This spec defines the product domain model in the Catalog Service for a second-h
 - Rejected `SellRequest`s cannot be modified or resubmitted; client must create a new one.
 - Only admins can approve or reject `SellRequest`s.
 - Only the owning admin can mutate their `Product`s.
-- `Product.Status` follows: `active` → `sold` | `archived` with no backward transitions.
+- `Product.Status` follows: `unpublished` → `published` → `sold` with no backward transitions.
+- Products created via `SellRequest` approval start in `unpublished` status.
 - All domain rules are enforced at the aggregate level; repositories enforce persistence constraints.
 - Domain events are published for: `SellRequest` submitted, approved, rejected; `Product` created, updated, sold, archived.
 
 ## Open Questions
 
-- Should `Image` support multiple images per product/sell request, or a single primary image?
-- Is there a maximum number of images per product?
-- Does `Brand` need to be validated against a predefined list, or is free text acceptable?
-- Should there be a soft delete (archive) vs. hard delete for `Product`s?
-- What notification (email/push/in-app) should be sent to the client when their `SellRequest` is approved or rejected?
-- Does the admin need a bulk approve/reject capability for multiple `SellRequest`s at once?
-- Should `SellRequest` include an optional field for the client to upload multiple images?
+All open questions have been resolved:
+- `Images` supports multiple images (array of URL strings); min 1, max 10.
+- `Brand` is free text, no predefined list.
+- Soft delete is used (status transitions only; no hard delete).
+- Notifications on approve/reject are out of scope for this spec (not yet implemented).
+- Bulk approve/reject is not required.
+- `SellRequest.Images` is required (client must include at least one image).
 
 ## Testing Guidelines
 
