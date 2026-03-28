@@ -3,9 +3,9 @@ package producer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/message"
 	"github.com/rabbitmq/amqp091-go"
@@ -17,13 +17,14 @@ type Producer interface {
 type rabbitMQProducer struct {
 	connection connection.IConnection
 	config     *RabbitMQProducerConfiguration
-	//logger
+	logger     logger.Logger
 }
 
-func NewRabbitMQProducer(conn connection.IConnection, config *RabbitMQProducerConfiguration) Producer {
+func NewRabbitMQProducer(conn connection.IConnection, logger logger.Logger, config *RabbitMQProducerConfiguration) Producer {
 	return &rabbitMQProducer{
 		connection: conn,
 		config:     config,
+		logger:     logger,
 	}
 }
 
@@ -54,10 +55,10 @@ func (r *rabbitMQProducer) PublishMessage(ctx context.Context, exchange, routing
 	); err != nil {
 		return err
 	}
-	return confirmMessage(ctx, confirms)
+	return r.confirmMessage(ctx, confirms)
 }
 
-func confirmMessage(ctx context.Context, confirms <-chan amqp091.Confirmation) error {
+func (r *rabbitMQProducer) confirmMessage(ctx context.Context, confirms <-chan amqp091.Confirmation) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	select {
@@ -65,7 +66,7 @@ func confirmMessage(ctx context.Context, confirms <-chan amqp091.Confirmation) e
 		if !confirm.Ack {
 			return errors.New("message is not acked")
 		} else {
-			fmt.Println("message is acked")
+			r.logger.Info("message is acked")
 			return nil
 		}
 	case <-ctx.Done():

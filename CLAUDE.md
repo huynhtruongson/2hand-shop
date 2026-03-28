@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 📌 Project Overview
 A microservice-based second-hand marketplace in **Go (Golang) + React 19**. Four services follow DDD + CQRS with event-driven communication via RabbitMQ:
 - **Identity** — User management, Auth/AuthZ via AWS Cognito, Profiles
-- **Catalog** — Listings, Categories, Item conditions (PostgreSQL + Elasticsearch)
+- **Catalog** — Products, Categories, Item conditions (PostgreSQL + Elasticsearch)
 - **Commerce** — Orders, Cart, Payments via Stripe
 - **Notification** — Email, Push, In-app real-time
 
@@ -75,7 +75,7 @@ The local environment lives in `deployments/local/`. It starts:
 | Context | Responsibility |
 |---|---|
 | **Identity** | User management, Auth/AuthZ via AWS Cognito, Profiles |
-| **Catalog** | Listings, Categories, Item conditions (PostgreSQL + Elasticsearch) |
+| **Catalog** | Products, Categories, Item conditions (PostgreSQL + Elasticsearch) |
 | **Commerce** | Orders, Cart, Payments via Stripe |
 | **Notification** | Email, Push, In-app real-time |
 
@@ -86,7 +86,7 @@ The local environment lives in `deployments/local/`. It starts:
 ```
 Command Side                        Query Side
 ────────────                        ──────────
-POST /listings                      GET /listings?q=...
+POST /products                      GET /products?q=...
       │                                    │
 ┌─────▼──────┐                    ┌────────▼──────┐
 │  Command   │                    │ Query Handler │
@@ -94,7 +94,7 @@ POST /listings                      GET /listings?q=...
 └─────┬──────┘                    └────────┬──────┘
       │                                    │
 ┌─────▼──────┐  Domain Event     ┌─────────▼──────┐
-│  Postgres  │──listing.created─►│ Elasticsearch  │
+│  Postgres  │──product.created─►│ Elasticsearch  │
 │  (Write)   │                   │    (Read)      │
 └────────────┘                   └────────────────┘
 ```
@@ -103,15 +103,15 @@ POST /listings                      GET /listings?q=...
 
 | Artifact | Pattern | Example |
 |---|---|---|
-| Command struct | `VerbNounCommand` | `CreateListingCommand` |
-| Command handler | `VerbNounHandler` | `CreateListingHandler` |
-| Query struct | `GetNounQuery` / `ListNounsQuery` | `GetListingQuery` |
-| Query handler | `GetNounHandler` / `ListNounsHandler` | `ListListingsHandler` |
-| Domain event struct | `NounVerbed` (past tense) | `ListingCreated` |
-| Event handler | `On<NounVerbed>Handler` | `OnListingCreatedHandler` |
-| Repository interface | `NounRepository` | `ListingRepository` |
-| DTO (request) | `VerbNounRequest` | `CreateListingRequest` |
-| DTO (response) | `NounResponse` | `ListingResponse` |
+| Command struct | `VerbNounCommand` | `CreateProductCommand` |
+| Command handler | `VerbNounHandler` | `CreateProductHandler` |
+| Query struct | `GetNounQuery` / `ListNounsQuery` | `GetProductQuery` |
+| Query handler | `GetNounHandler` / `ListNounsHandler` | `ListProductsHandler` |
+| Domain event struct | `NounVerbed` (past tense) | `ProductCreated` |
+| Event handler | `On<NounVerbed>Handler` | `OnProductCreatedHandler` |
+| Repository interface | `NounRepository` | `ProductRepository` |
+| DTO (request) | `VerbNounRequest` | `CreateProductRequest` |
+| DTO (response) | `NounResponse` | `ProductResponse` |
 
 ---
 
@@ -122,7 +122,7 @@ POST /listings                      GET /listings?q=...
 | Exchange | Type | Purpose |
 |---|---|---|
 | `identity.events` | topic | User/auth domain events |
-| `catalog.events` | topic | Listing/category domain events |
+| `catalog.events` | topic | Product/category domain events |
 | `commerce.events` | topic | Order/payment domain events |
 | `notification.events` | topic | Notification triggers |
 
@@ -132,9 +132,9 @@ POST /listings                      GET /listings?q=...
 <bounded-context>.<aggregate>.<event-name>
 
 Examples:
-  catalog.listing.created
-  catalog.listing.updated
-  catalog.listing.deleted
+  catalog.product.created
+  catalog.product.updated
+  catalog.product.deleted
   commerce.order.placed
   commerce.order.cancelled
   identity.user.registered
@@ -147,9 +147,9 @@ All events share a common envelope. The `payload` field is JSON-serialized domai
 ```go
 type EventMessage struct {
     EventID       string          `json:"event_id"`       // UUID v4
-    EventName     string          `json:"event_name"`     // e.g. "listing.created"
+    EventName     string          `json:"event_name"`     // e.g. "product.created"
     AggregateID   string          `json:"aggregate_id"`   // UUID of the root aggregate
-    AggregateType string          `json:"aggregate_type"` // e.g. "Listing"
+    AggregateType string          `json:"aggregate_type"` // e.g. "Product"
     OccurredAt    time.Time       `json:"occurred_at"`
     Payload       json.RawMessage `json:"payload"`
 }
@@ -159,13 +159,13 @@ type EventMessage struct {
 
 ```
 CatalogService (producer)
-  └─ listing created → publishes to exchange: catalog.events
-                         routing key: catalog.listing.created
+  └─ product created → publishes to exchange: catalog.events
+                         routing key: catalog.product.created
   └─ CatalogService (query handler) reads from Elasticsearch
 
 NotificationService (consumer)
-  └─ binds queue: notification.catalog.listing.created
-       → OnListingCreatedHandler → triggers seller confirmation email
+  └─ binds queue: notification.catalog.product.created
+       → OnProductCreatedHandler → triggers seller confirmation email
 
 CommerceService (producer)
   └─ order placed → publishes to exchange: commerce.events
@@ -193,7 +193,7 @@ Gateway config lives in `gateway/`. All external traffic enters through Tyk.
 
 Examples:
 ```
-/api/v1/catalog/listings        → Catalog service
+/api/v1/catalog/products        → Catalog service
 /api/v1/identity/users          → Identity service
 /api/v1/commerce/orders         → Commerce service
 ```
@@ -218,8 +218,8 @@ Migration files live in `migrations/<bounded-context>/`. Run via `task migrate:<
 All errors flow through `AppError` in `internal/pkg/errors/`. It is constructed with `NewAppError(kind, code, message)` and extended with builder methods:
 
 ```go
-NewAppError(KindNotFound, "LISTING_NOT_FOUND", "listing not found").
-    WithMeta("listing_id", id).
+NewAppError(KindNotFound, "PRODUCT_NOT_FOUND", "product not found").
+    WithMeta("product_id", id).
     WithCause(err)
 ```
 
@@ -243,10 +243,10 @@ NewAppError(KindNotFound, "LISTING_NOT_FOUND", "listing not found").
 ```json
 {
   "error": {
-    "code": "LISTING_NOT_FOUND",
-    "message": "listing not found",
+    "code": "PRODUCT_NOT_FOUND",
+    "message": "product not found",
     "details": {
-      "listing_id": "required field"
+      "product_id": "required field"
     }
   }
 }
@@ -265,13 +265,13 @@ The `details` field is only present for validation errors.
 - Session tokens are stored in Redis with a TTL; expiry is enforced in middleware.
 
 ### Catalog
-- A `Listing` aggregate must have: non-empty `Title`, a valid `CategoryID`, a positive `Price`, and a valid `Condition` (`new`, `like_new`, `good`, `fair`, `poor`).
+- A `Product` aggregate must have: non-empty `Title`, a valid `CategoryID`, a positive `Price`, and a valid `Condition` (`new`, `like_new`, `good`, `fair`, `poor`).
 - Status transitions: `draft` → `active` → `sold` | `archived`. No backward transitions.
-- A listing can only be mutated by its owning seller (`SellerID`).
+- A product can only be mutated by its owning seller (`SellerID`).
 
 ### Commerce
-- An `Order` can only be created from an `active` listing.
-- Once an `Order` is `placed`, the listing status moves to `sold` (via domain event).
+- An `Order` can only be created from an `active` product.
+- Once an `Order` is `placed`, the product status moves to `sold` (via domain event).
 - Payment must be confirmed before the order moves to `confirmed`.
 - Order status flow: `pending` → `confirmed` → `shipped` → `delivered` | `cancelled`.
 
@@ -292,7 +292,7 @@ Used only when a service needs an immediate response from another service during
 | Consumer | Provider | Use Case |
 |---|---|---|
 | Commerce | Identity (gRPC) | Validate user exists before placing order |
-| Commerce | Catalog (gRPC) | Fetch listing price/status at order time |
+| Commerce | Catalog (gRPC) | Fetch product price/status at order time |
 | Notification | Identity (gRPC) | Resolve user contact details (email, push token) |
 
 Proto files live in `internal/services/<service>/internal/transports/grpc/proto/`.
@@ -308,8 +308,8 @@ Constructor injection everywhere. No global state, no `init()` side effects. Ser
 
 ```go
 // Correct
-func NewCreateListingHandler(repo domain.ListingRepository, publisher port.EventPublisher) *CreateListingHandler {
-    return &CreateListingHandler{repo: repo, publisher: publisher}
+func NewCreateProductHandler(repo domain.ProductRepository, publisher port.EventPublisher) *CreateProductHandler {
+    return &CreateProductHandler{repo: repo, publisher: publisher}
 }
 ```
 

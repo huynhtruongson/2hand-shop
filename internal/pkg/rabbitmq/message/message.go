@@ -11,6 +11,12 @@ import (
 
 const ContentTypeJSON = "application/json"
 
+type IMessage interface {
+	EventName() string
+	Exchange() string
+	Message() RabbitMQMessage
+}
+
 type Envelope[T any] struct {
 	ID            string    `json:"id"`
 	Type          string    `json:"type"`
