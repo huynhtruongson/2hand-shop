@@ -8,12 +8,11 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/consumer"
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/message"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/producer"
 )
 
 type Manager interface {
-	PublishMessage(ctx context.Context, exchange, routingKey string, msg *message.RabbitMQMessage) error
+	Producer() producer.Producer
 	Start(ctx context.Context) error
 	Stop() error
 }
@@ -45,13 +44,13 @@ func NewRabbitMQManager(consumerConn, produercerConn connection.IConnection, bui
 		manager.consumers = append(manager.consumers, consumer)
 	}
 	if manager.config.ProducerConfiguration != nil {
-		manager.producer = producer.NewRabbitMQProducer(manager.producerConnection, manager.config.ProducerConfiguration)
+		manager.producer = producer.NewRabbitMQProducer(manager.producerConnection, manager.logger, manager.config.ProducerConfiguration)
 	}
 	return manager
 }
 
-func (r *rabbitMQManager) PublishMessage(ctx context.Context, exchange string, routingKey string, msg *message.RabbitMQMessage) error {
-	return r.producer.PublishMessage(ctx, exchange, routingKey, msg)
+func (r *rabbitMQManager) Producer() producer.Producer {
+	return r.producer
 }
 
 func (r *rabbitMQManager) Start(ctx context.Context) error {
