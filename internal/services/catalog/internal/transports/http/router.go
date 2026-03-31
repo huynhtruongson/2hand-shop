@@ -18,7 +18,7 @@ type HttpServer struct {
 	srv    *http.Server
 }
 
-func NewHttpServer(cfg config.Config, logger logger.Logger, authHandler *AuthHandler, userHandler *UserHandler) *HttpServer {
+func NewHttpServer(cfg config.Config, logger logger.Logger, catalogHandler *CatalogHandler) *HttpServer {
 	router := gin.Default()
 	router.Use(gin.Recovery(), middleware.GinRequestID(), middleware.GinLogger(middleware.LogConfig{
 		Logger:          logger,
@@ -34,13 +34,9 @@ func NewHttpServer(cfg config.Config, logger logger.Logger, authHandler *AuthHan
 	httpServer := HttpServer{cfg: cfg, srv: &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.GinHttp.Port),
 		Handler: router,
-		// ReadTimeout:  time.Duration(cfg.ReadTimeout) * time.Second,
-		// WriteTimeout: time.Duration(cfg.WriteTimeout) * time.Second,
-		// IdleTimeout:  60 * time.Second,
 	}, logger: logger}
 
-	httpServer.registerAuthRoutes(router, authHandler)
-	httpServer.registerUserRoutes(router, userHandler)
+	httpServer.registerCatalogRoutes(router, catalogHandler)
 
 	return &httpServer
 }
@@ -57,20 +53,13 @@ func (s *HttpServer) Addr() string {
 	return s.srv.Addr
 }
 
-func (sv *HttpServer) registerAuthRoutes(r *gin.Engine, authHandler *AuthHandler) {
-	r.POST("/signup", authHandler.SignUpHandler)
-	r.POST("/signin", authHandler.SignInHandler)
-	r.POST("/confirm-account", authHandler.ConfirmAccountHandler)
-}
-
-func (sv *HttpServer) registerUserRoutes(r *gin.Engine, userHandler *UserHandler) {
+func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *CatalogHandler) {
 	r.Use(auth.CognitoAuth(auth.CognitoConfig{
 		Region:     sv.cfg.Cognito.Region,
 		UserPoolID: sv.cfg.Cognito.UserPoolID,
 		ClientID:   sv.cfg.Cognito.ClientID,
 		TokenUse:   "access",
-	}))
+	}), auth.RequireRole("admin"))
 
-	r.GET("/users/profile", userHandler.GetProfileHandler)
-	r.PUT("/users/profile", userHandler.UpdateProfileHandler)
+	r.POST("/catalog/products", catalogHandler.CreateProductHandler)
 }

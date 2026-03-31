@@ -1,4 +1,4 @@
-package middleware
+package auth
 
 import (
 	"context"
@@ -21,11 +21,11 @@ import (
 // Context keys
 // --------------------------------------------------------------------------
 
-type contextKey string
+type contextKey int
 
 const (
-	claimsKey contextKey = "cognito_claims"
-	userIDKey contextKey = "cognito_custom_id"
+	claimsCtxKey contextKey = iota
+	userCtxKey
 )
 
 // --------------------------------------------------------------------------
@@ -219,8 +219,11 @@ func buildMiddleware(cfg CognitoConfig, kc *keyCache, required bool) gin.Handler
 			return
 		}
 
-		c.Set(string(claimsKey), claims)
-		c.Set(string(userIDKey), claims.CustomID)
+		c.Set(string(claimsCtxKey), claims)
+		c.Set(string(userCtxKey), User{
+			id:   claims.CustomID,
+			role: claims.CustomRole,
+		})
 		c.Next()
 	}
 }
@@ -234,7 +237,7 @@ func RequireCognitoGroup(groups ...string) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		claims, ok := GetClaims(c)
+		claims, ok := ClaimsFromCtx(c)
 		if !ok {
 			abortUnauthorized(c, "AUTH_UNAUTHORIZED", "authentication required")
 			return
@@ -259,7 +262,7 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		claims, ok := GetClaims(c)
+		claims, ok := ClaimsFromCtx(c)
 		if !ok {
 			abortUnauthorized(c, "AUTH_UNAUTHORIZED", "authentication required")
 			return
@@ -333,8 +336,8 @@ func parseAndValidate(tokenStr string, cfg CognitoConfig, kc *keyCache) (*Cognit
 // --------------------------------------------------------------------------
 
 // GetClaims retrieves CognitoClaims stored by the middleware.
-func GetClaims(c *gin.Context) (*CognitoClaims, bool) {
-	v, ok := c.Get(string(claimsKey))
+func ClaimsFromCtx(c *gin.Context) (*CognitoClaims, bool) {
+	v, ok := c.Get(string(claimsCtxKey))
 	if !ok {
 		return nil, false
 	}
@@ -342,14 +345,14 @@ func GetClaims(c *gin.Context) (*CognitoClaims, bool) {
 	return claims, ok
 }
 
-// GetUserID returns the Cognito subject (user ID) from context.
-func GetUserID(c *gin.Context) (string, bool) {
-	v, ok := c.Get(string(userIDKey))
+// GetUser returns the User from context.
+func UserFromCtx(c *gin.Context) (User, bool) {
+	v, ok := c.Get(string(userCtxKey))
 	if !ok {
-		return "", false
+		return User{}, false
 	}
-	s, ok := v.(string)
-	return s, ok
+	u, ok := v.(User)
+	return u, ok
 }
 
 // --------------------------------------------------------------------------

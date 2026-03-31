@@ -2,7 +2,7 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/middleware"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/auth"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/utils"
 	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/application"
 	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/application/command"
@@ -27,14 +27,14 @@ func (h *UserHandler) UpdateProfileHandler(ctx *gin.Context) {
 		return
 	}
 
-	userID, ok := middleware.GetUserID(ctx)
+	authUser, ok := auth.UserFromCtx(ctx)
 	if !ok {
 		utils.ResponseError(ctx, errors.ErrUnauthorized)
 		return
 	}
 
 	_, err := h.app.Commands.UpdateProfile.Handle(ctx, command.UpdateProfile{
-		UserID: userID,
+		UserID: authUser.UserID(),
 		Name:   req.Name,
 		Gender: req.Gender,
 	})
@@ -47,14 +47,14 @@ func (h *UserHandler) UpdateProfileHandler(ctx *gin.Context) {
 }
 
 func (h *UserHandler) GetProfileHandler(ctx *gin.Context) {
-	userID, ok := middleware.GetUserID(ctx)
+	authUser, ok := auth.UserFromCtx(ctx)
 	if !ok {
 		utils.ResponseError(ctx, errors.ErrUnauthorized)
 		return
 	}
 
 	user, err := h.app.Queries.Profile.Handle(ctx, query.Profile{
-		ID: userID,
+		ID: authUser.UserID(),
 	})
 	if err != nil {
 		utils.ResponseError(ctx, err)

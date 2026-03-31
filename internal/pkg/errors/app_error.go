@@ -145,7 +145,8 @@ func (e *AppError) Unwrap() error { return e.cause }
 
 func (e *AppError) Kind() Kind { return e.kind }
 
-func (e *AppError) Code() string { return e.code }
+func (e *AppError) Code() string            { return e.code }
+func (e *AppError) Details() map[string]string { return e.details }
 
 func (e *AppError) HTTPStatus() int {
 	if s, ok := kindHTTPStatus[e.kind]; ok {

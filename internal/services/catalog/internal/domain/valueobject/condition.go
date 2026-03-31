@@ -1,10 +1,7 @@
 package valueobject
 
-import "errors"
+import "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
 
-// Condition represents the physical condition of a listed item.
-// It is a value object: equality is based on its string value,
-// not object identity.
 type Condition struct {
 	value string
 }
@@ -61,5 +58,5 @@ func NewConditionFromString(value string) (Condition, error) {
 	case "poor":
 		return ConditionPoor, nil
 	}
-	return Condition{}, errors.New("invalid condition")
+	return Condition{}, errors.ErrProductConditionInvalid
 }

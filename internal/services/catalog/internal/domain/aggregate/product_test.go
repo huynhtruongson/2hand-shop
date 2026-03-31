@@ -20,16 +20,17 @@ func makeAttachments() customtypes.Attachments {
 }
 
 func rebuildProduct(
-	id, sellerID, categoryID, title, description string,
-	price customtypes.Price, currency customtypes.Currency,
+	id, categoryID, title, description string,
+	price customtypes.Price, currency valueobject.Currency,
 	condition valueobject.Condition, status valueobject.ProductStatus,
 	images customtypes.Attachments,
 	createdAt, updatedAt time.Time, deletedAt *time.Time,
+	brand *string,
 ) *Product {
 	return UnmarshalProductFromDB(
-		id, sellerID, categoryID, title, description,
+		id, categoryID, title, description,
 		price, currency, condition, status,
-		images, createdAt, updatedAt, deletedAt,
+		images, createdAt, updatedAt, deletedAt, brand,
 	)
 }
 
@@ -38,19 +39,17 @@ func rebuildProduct(
 func TestNewProduct_Valid(t *testing.T) {
 	t.Parallel()
 	p, err := NewProduct(
-		"prod-001", "seller-001", "cat-001",
+		"prod-001", "cat-001",
 		"Vintage Lamp", "A beautiful vintage desk lamp",
-		customtypes.MustNewPrice("25.50"), customtypes.MustCurrency("USD"),
+		customtypes.MustNewPrice("25.50"),
 		valueobject.ConditionGood, makeAttachments(),
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("NewProduct() unexpected error: %v", err)
 	}
 	if p.ID() != "prod-001" {
 		t.Errorf("ID() = %q, want %q", p.ID(), "prod-001")
-	}
-	if p.SellerID() != "seller-001" {
-		t.Errorf("SellerID() = %q, want %q", p.SellerID(), "seller-001")
 	}
 	if p.CategoryID() != "cat-001" {
 		t.Errorf("CategoryID() = %q, want %q", p.CategoryID(), "cat-001")
@@ -64,8 +63,8 @@ func TestNewProduct_Valid(t *testing.T) {
 	if !p.Price().Equal(customtypes.MustNewPrice("25.50")) {
 		t.Errorf("Price() = %v, want %v", p.Price(), customtypes.MustNewPrice("25.50"))
 	}
-	if p.Currency() != customtypes.MustCurrency("USD") {
-		t.Errorf("Currency() = %v, want %v", p.Currency(), customtypes.MustCurrency("USD"))
+	if p.Currency() != valueobject.CurrencyUSD {
+		t.Errorf("Currency() = %v, want %v", p.Currency(), valueobject.CurrencyUSD)
 	}
 	if p.Condition() != valueobject.ConditionGood {
 		t.Errorf("Condition() = %v, want %v", p.Condition(), valueobject.ConditionGood)
@@ -87,40 +86,40 @@ func TestNewProduct_ValidationErrors(t *testing.T) {
 	// Each test case calls NewProduct directly so no default-overwrite logic
 	// accidentally masks the field under test.
 	t.Run("empty id", func(t *testing.T) {
-		_, err := NewProduct("  ", "seller-001", "cat-001",
+		_, err := NewProduct("  ", "cat-001",
 			"Vintage Lamp", "A beautiful vintage desk lamp",
-			customtypes.MustNewPrice("25.50"), customtypes.MustCurrency("USD"),
-			valueobject.ConditionGood, makeAttachments())
+			customtypes.MustNewPrice("25.50"),
+			valueobject.ConditionGood, makeAttachments(), nil)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
 		assertAppErrorDetail(t, err, "id")
 	})
 	t.Run("empty category_id", func(t *testing.T) {
-		_, err := NewProduct("prod-001", "seller-001", "  ",
+		_, err := NewProduct("prod-001", "  ",
 			"Vintage Lamp", "A beautiful vintage desk lamp",
-			customtypes.MustNewPrice("25.50"), customtypes.MustCurrency("USD"),
-			valueobject.ConditionGood, makeAttachments())
+			customtypes.MustNewPrice("25.50"),
+			valueobject.ConditionGood, makeAttachments(), nil)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
 		assertAppErrorDetail(t, err, "category_id")
 	})
 	t.Run("empty title", func(t *testing.T) {
-		_, err := NewProduct("prod-001", "seller-001", "cat-001",
+		_, err := NewProduct("prod-001", "cat-001",
 			"  ", "A beautiful vintage desk lamp",
-			customtypes.MustNewPrice("25.50"), customtypes.MustCurrency("USD"),
-			valueobject.ConditionGood, makeAttachments())
+			customtypes.MustNewPrice("25.50"),
+			valueobject.ConditionGood, makeAttachments(), nil)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
 		assertAppErrorDetail(t, err, "title")
 	})
 	t.Run("zero price", func(t *testing.T) {
-		_, err := NewProduct("prod-001", "seller-001", "cat-001",
+		_, err := NewProduct("prod-001", "cat-001",
 			"Vintage Lamp", "A beautiful vintage desk lamp",
-			customtypes.MustNewPrice("0"), customtypes.MustCurrency("USD"),
-			valueobject.ConditionGood, makeAttachments())
+			customtypes.MustNewPrice("0"),
+			valueobject.ConditionGood, makeAttachments(), nil)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -129,30 +128,20 @@ func TestNewProduct_ValidationErrors(t *testing.T) {
 	t.Run("negative price", func(t *testing.T) {
 		// NewPrice rejects negative strings, so construct via the embedded decimal.
 		negPrice := customtypes.Price{Decimal: decimal.NewFromFloat(-5.0)}
-		_, err := NewProduct("prod-001", "seller-001", "cat-001",
+		_, err := NewProduct("prod-001", "cat-001",
 			"Vintage Lamp", "A beautiful vintage desk lamp",
-			negPrice, customtypes.MustCurrency("USD"),
-			valueobject.ConditionGood, makeAttachments())
+			negPrice,
+			valueobject.ConditionGood, makeAttachments(), nil)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
 		assertAppErrorDetail(t, err, "price")
 	})
-	t.Run("empty currency", func(t *testing.T) {
-		_, err := NewProduct("prod-001", "seller-001", "cat-001",
-			"Vintage Lamp", "A beautiful vintage desk lamp",
-			customtypes.MustNewPrice("25.50"), "",
-			valueobject.ConditionGood, makeAttachments())
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		assertAppErrorDetail(t, err, "currency")
-	})
 	t.Run("images may be nil", func(t *testing.T) {
-		_, err := NewProduct("prod-001", "seller-001", "cat-001",
+		_, err := NewProduct("prod-001", "cat-001",
 			"Vintage Lamp", "A beautiful vintage desk lamp",
-			customtypes.MustNewPrice("25.50"), customtypes.MustCurrency("USD"),
-			valueobject.ConditionGood, nil)
+			customtypes.MustNewPrice("25.50"),
+			valueobject.ConditionGood, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -177,17 +166,16 @@ func TestProduct_Getters(t *testing.T) {
 	t.Parallel()
 	now := time.Now().UTC()
 	p := rebuildProduct(
-		"prod-getter-001", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("10.00"), customtypes.MustCurrency("EUR"),
+		"prod-getter-001", "cat-001", "Title", "Desc",
+		customtypes.MustNewPrice("10.00"), valueobject.CurrencyEUR,
 		valueobject.ConditionLikeNew, valueobject.ProductStatusPublished,
-		makeAttachments(), now, now, nil,
+		makeAttachments(),
+		now, now, nil,
+		nil,
 	)
 
 	if got := p.ID(); got != "prod-getter-001" {
 		t.Errorf("ID() = %q, want %q", got, "prod-getter-001")
-	}
-	if got := p.SellerID(); got != "seller-001" {
-		t.Errorf("SellerID() = %q, want %q", got, "seller-001")
 	}
 	if got := p.CategoryID(); got != "cat-001" {
 		t.Errorf("CategoryID() = %q, want %q", got, "cat-001")
@@ -217,10 +205,12 @@ func TestProduct_Getters(t *testing.T) {
 func TestProduct_MarkDeleted(t *testing.T) {
 	t.Parallel()
 	p := rebuildProduct(
-		"prod-del", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+		"prod-del", "cat-001", "Title", "Desc",
+		customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 		valueobject.ConditionNew, valueobject.ProductStatusDraft,
-		nil, time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
+		time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
 	)
 
 	p.MarkDeleted()
@@ -238,10 +228,12 @@ func TestProduct_MarkDeleted(t *testing.T) {
 func TestProduct_Publish(t *testing.T) {
 	t.Parallel()
 	p := rebuildProduct(
-		"prod-pub", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+		"prod-pub", "cat-001", "Title", "Desc",
+		customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 		valueobject.ConditionNew, valueobject.ProductStatusDraft,
-		nil, time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
+		time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
 	)
 
 	err := p.Publish()
@@ -268,10 +260,12 @@ func TestProduct_Publish_InvalidTransition(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := rebuildProduct(
-				"prod-pub-err", "seller-001", "cat-001", "Title", "Desc",
-				customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+				"prod-pub-err", "cat-001", "Title", "Desc",
+				customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 				valueobject.ConditionNew, tc.status,
-				nil, time.Now().UTC(), time.Now().UTC(), nil,
+				nil,
+				time.Now().UTC(), time.Now().UTC(), nil,
+				nil,
 			)
 
 			err := p.Publish()
@@ -293,10 +287,12 @@ func TestProduct_Publish_InvalidTransition(t *testing.T) {
 func TestProduct_MarkSold(t *testing.T) {
 	t.Parallel()
 	p := rebuildProduct(
-		"prod-sold", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+		"prod-sold", "cat-001", "Title", "Desc",
+		customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 		valueobject.ConditionNew, valueobject.ProductStatusPublished,
-		nil, time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
+		time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
 	)
 
 	err := p.MarkSold("order-001")
@@ -323,10 +319,12 @@ func TestProduct_MarkSold_InvalidTransition(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := rebuildProduct(
-				"prod-sold-err", "seller-001", "cat-001", "Title", "Desc",
-				customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+				"prod-sold-err", "cat-001", "Title", "Desc",
+				customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 				valueobject.ConditionNew, tc.status,
-				nil, time.Now().UTC(), time.Now().UTC(), nil,
+				nil,
+				time.Now().UTC(), time.Now().UTC(), nil,
+				nil,
 			)
 
 			err := p.MarkSold("order-001")
@@ -348,10 +346,12 @@ func TestProduct_MarkSold_InvalidTransition(t *testing.T) {
 func TestProduct_Archive(t *testing.T) {
 	t.Parallel()
 	p := rebuildProduct(
-		"prod-arch", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+		"prod-arch", "cat-001", "Title", "Desc",
+		customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 		valueobject.ConditionNew, valueobject.ProductStatusPublished,
-		nil, time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
+		time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
 	)
 
 	err := p.Archive("seller-001")
@@ -378,10 +378,12 @@ func TestProduct_Archive_InvalidTransition(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := rebuildProduct(
-				"prod-arch-err", "seller-001", "cat-001", "Title", "Desc",
-				customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+				"prod-arch-err", "cat-001", "Title", "Desc",
+				customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 				valueobject.ConditionNew, tc.status,
-				nil, time.Now().UTC(), time.Now().UTC(), nil,
+				nil,
+				time.Now().UTC(), time.Now().UTC(), nil,
+				nil,
 			)
 
 			err := p.Archive("seller-001")
@@ -403,16 +405,18 @@ func TestProduct_Archive_InvalidTransition(t *testing.T) {
 func TestProduct_Update(t *testing.T) {
 	t.Parallel()
 	p := rebuildProduct(
-		"prod-upd", "seller-001", "cat-001", "Old Title", "Old Desc",
-		customtypes.MustNewPrice("5.00"), customtypes.MustCurrency("USD"),
+		"prod-upd", "cat-001", "Old Title", "Old Desc",
+		customtypes.MustNewPrice("5.00"), valueobject.CurrencyUSD,
 		valueobject.ConditionFair, valueobject.ProductStatusDraft,
-		nil, time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
+		time.Now().UTC(), time.Now().UTC(), nil,
+		nil,
 	)
 
 	newImages := makeAttachments()
 	err := p.Update("New Title", "New Desc",
-		customtypes.MustNewPrice("15.00"), customtypes.MustCurrency("EUR"),
-		valueobject.ConditionLikeNew, newImages)
+		customtypes.MustNewPrice("15.00"),
+		valueobject.ConditionLikeNew, newImages, nil)
 
 	if err != nil {
 		t.Fatalf("Update() unexpected error: %v", err)
@@ -426,8 +430,8 @@ func TestProduct_Update(t *testing.T) {
 	if !p.Price().Equal(customtypes.MustNewPrice("15.00")) {
 		t.Errorf("Price() = %v, want %v", p.Price(), customtypes.MustNewPrice("15.00"))
 	}
-	if p.Currency() != customtypes.MustCurrency("EUR") {
-		t.Errorf("Currency() = %v, want %v", p.Currency(), customtypes.MustCurrency("EUR"))
+	if p.Currency() != valueobject.CurrencyUSD {
+		t.Errorf("Currency() = %v, want %v", p.Currency(), valueobject.CurrencyUSD)
 	}
 	if p.Condition() != valueobject.ConditionLikeNew {
 		t.Errorf("Condition() = %v, want %v", p.Condition(), valueobject.ConditionLikeNew)
@@ -448,15 +452,17 @@ func TestProduct_Update_TerminalStatusBlocked(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := rebuildProduct(
-				"prod-upd-err", "seller-001", "cat-001", "Title", "Desc",
-				customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+				"prod-upd-err", "cat-001", "Title", "Desc",
+				customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 				valueobject.ConditionNew, tc.status,
-				nil, time.Now().UTC(), time.Now().UTC(), nil,
+				nil,
+				time.Now().UTC(), time.Now().UTC(), nil,
+				nil,
 			)
 
 			err := p.Update("New Title", "New Desc",
-				customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
-				valueobject.ConditionNew, nil)
+				customtypes.MustNewPrice("1.00"),
+				valueobject.ConditionNew, nil, nil)
 
 			if err == nil {
 				t.Fatal("expected error, got nil")
@@ -480,10 +486,12 @@ func TestUnmarshalProductFromDB(t *testing.T) {
 	images := makeAttachments()
 
 	p := rebuildProduct(
-		"prod-db", "seller-001", "cat-001", "Stored Title", "Stored Desc",
-		customtypes.MustNewPrice("99.99"), customtypes.MustCurrency("GBP"),
+		"prod-db", "cat-001", "Stored Title", "Stored Desc",
+		customtypes.MustNewPrice("99.99"), valueobject.CurrencyGBP,
 		valueobject.ConditionGood, valueobject.ProductStatusArchived,
-		images, now, now, &deletedAt,
+		images,
+		now, now, &deletedAt,
+		nil,
 	)
 
 	if p.ID() != "prod-db" {
@@ -510,10 +518,10 @@ func TestProduct_Validate(t *testing.T) {
 			name: "valid product passes",
 			setup: func() *Product {
 				return UnmarshalProductFromDB(
-					"id", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+					"id", "cat", "title", "desc",
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil,
+					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
 				)
 			},
 			wantErr: false,
@@ -522,10 +530,10 @@ func TestProduct_Validate(t *testing.T) {
 			name: "empty id fails",
 			setup: func() *Product {
 				return UnmarshalProductFromDB(
-					"  ", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+					"  ", "cat", "title", "desc",
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil,
+					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
 				)
 			},
 			wantErr: true,
@@ -534,10 +542,10 @@ func TestProduct_Validate(t *testing.T) {
 			name: "empty category_id fails",
 			setup: func() *Product {
 				return UnmarshalProductFromDB(
-					"id", "seller", "  ", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+					"id", "  ", "title", "desc",
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil,
+					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
 				)
 			},
 			wantErr: true,
@@ -546,10 +554,10 @@ func TestProduct_Validate(t *testing.T) {
 			name: "empty title fails",
 			setup: func() *Product {
 				return UnmarshalProductFromDB(
-					"id", "seller", "cat", "  ", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+					"id", "cat", "  ", "desc",
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil,
+					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
 				)
 			},
 			wantErr: true,
@@ -558,10 +566,10 @@ func TestProduct_Validate(t *testing.T) {
 			name: "zero price fails",
 			setup: func() *Product {
 				return UnmarshalProductFromDB(
-					"id", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("0"), customtypes.MustCurrency("USD"),
+					"id", "cat", "title", "desc",
+					customtypes.MustNewPrice("0"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil,
+					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
 				)
 			},
 			wantErr: true,
@@ -571,10 +579,10 @@ func TestProduct_Validate(t *testing.T) {
 			setup: func() *Product {
 				bad, _ := valueobject.NewConditionFromString("invalid")
 				return UnmarshalProductFromDB(
-					"id", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+					"id", "cat", "title", "desc",
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					bad, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil,
+					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
 				)
 			},
 			wantErr: true,
@@ -584,10 +592,10 @@ func TestProduct_Validate(t *testing.T) {
 			setup: func() *Product {
 				bad, _ := valueobject.NewProductStatusFromString("unknown")
 				return UnmarshalProductFromDB(
-					"id", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+					"id", "cat", "title", "desc",
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, bad,
-					nil, time.Now().UTC(), time.Now().UTC(), nil,
+					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
 				)
 			},
 			wantErr: true,

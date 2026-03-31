@@ -30,6 +30,8 @@ var (
 	ErrProductInvalidStatusTransition = errors.NewAppError(errors.KindBadRequest, "PRODUCT_INVALID_STATUS_TRANSITION", "invalid product status transition")
 
 	ErrProductNotActive = errors.NewAppError(errors.KindBadRequest, "PRODUCT_NOT_PUBLISHED", "product is not in published status")
+
+	ErrProductConditionInvalid = errors.NewAppError(errors.KindBadRequest, "PRODUCT_CONDITION_INVALID", "product condition is invalid")
 )
 
 // ── Catalog / ProductRequest ─────────────────────────────────────────────────

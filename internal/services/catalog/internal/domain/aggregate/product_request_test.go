@@ -14,24 +14,26 @@ import (
 
 func makeValidNewProductRequestParams() (
 	id, sellerID, categoryID, title, description string,
-	expectedPrice customtypes.Price, currency customtypes.Currency,
+	expectedPrice customtypes.Price,
 	condition valueobject.Condition, images customtypes.Attachments, contactInfo string,
 ) {
 	return "req-001", "seller-001", "cat-001", "Vintage Lamp", "A beautiful vintage desk lamp",
-		customtypes.MustNewPrice("30.00"), customtypes.MustCurrency("USD"),
+		customtypes.MustNewPrice("30.00"),
 		valueobject.ConditionGood, makeAttachments(), "seller@example.com"
 }
 
 func rebuildProductRequest(
 	id, sellerID, categoryID, title, description string,
-	expectedPrice customtypes.Price, currency customtypes.Currency,
+	expectedPrice customtypes.Price,
 	condition valueobject.Condition, status valueobject.ProductRequestStatus,
 	images customtypes.Attachments, contactInfo, adminRejectReason, adminNote string,
 	createdAt, updatedAt time.Time, deletedAt *time.Time,
 ) *ProductRequest {
 	return UnmarshalProductRequestFromDB(
 		id, sellerID, categoryID, title, description,
-		expectedPrice, currency, condition, status,
+		expectedPrice, valueobject.CurrencyUSD,
+		nil,
+		condition, status,
 		images, contactInfo, adminRejectReason, adminNote,
 		createdAt, updatedAt, deletedAt,
 	)
@@ -41,10 +43,10 @@ func rebuildProductRequest(
 
 func TestNewProductRequest_Valid(t *testing.T) {
 	t.Parallel()
-	id, sellerID, categoryID, title, description, expPrice, currency, condition, images, contact := makeValidNewProductRequestParams()
+	id, sellerID, categoryID, title, description, expPrice, condition, images, contact := makeValidNewProductRequestParams()
 
 	pr, err := NewProductRequest(id, sellerID, categoryID, title, description,
-		expPrice, currency, condition, images, contact)
+		nil, expPrice, condition, images, contact)
 
 	if err != nil {
 		t.Fatalf("NewProductRequest() unexpected error: %v", err)
@@ -67,8 +69,8 @@ func TestNewProductRequest_Valid(t *testing.T) {
 	if !pr.ExpectedPrice().Equal(expPrice) {
 		t.Errorf("ExpectedPrice() = %v, want %v", pr.ExpectedPrice(), expPrice)
 	}
-	if pr.Currency() != currency {
-		t.Errorf("Currency() = %v, want %v", pr.Currency(), currency)
+	if pr.Currency() != valueobject.CurrencyUSD {
+		t.Errorf("Currency() = %v, want %v", pr.Currency(), valueobject.CurrencyUSD)
 	}
 	if pr.Condition() != condition {
 		t.Errorf("Condition() = %v, want %v", pr.Condition(), condition)
@@ -92,7 +94,7 @@ func TestNewProductRequest_Valid(t *testing.T) {
 
 func TestNewProductRequest_ValidationErrors(t *testing.T) {
 	t.Parallel()
-	id, sellerID, categoryID, title, description, expPrice, currency, condition, images, contact := makeValidNewProductRequestParams()
+	id, sellerID, categoryID, title, description, expPrice, condition, images, contact := makeValidNewProductRequestParams()
 
 	tests := []struct {
 		name    string
@@ -134,8 +136,8 @@ func TestNewProductRequest_ValidationErrors(t *testing.T) {
 		},
 		{
 			name:    "empty currency",
-			modify:  func() { currency = "" },
-			wantErr: "currency",
+			modify:  func() {},
+			wantErr: "",
 		},
 		{
 			name: "invalid condition",
@@ -161,15 +163,15 @@ func TestNewProductRequest_ValidationErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			// Reset to defaults before each iteration.
-			id, sellerID, categoryID, title, description, expPrice, currency, condition, images, contact =
+			id, sellerID, categoryID, title, description, expPrice, condition, images, contact =
 				"req-001", "seller-001", "cat-001", "Vintage Lamp", "A beautiful vintage desk lamp",
-				customtypes.MustNewPrice("30.00"), customtypes.MustCurrency("USD"),
+				customtypes.MustNewPrice("30.00"),
 				valueobject.ConditionGood, makeAttachments(), "seller@example.com"
 
 			tc.modify()
 
 			_, err := NewProductRequest(id, sellerID, categoryID, title, description,
-				expPrice, currency, condition, images, contact)
+				nil, expPrice, condition, images, contact)
 
 			if tc.wantErr == "" {
 				if err != nil {
@@ -199,7 +201,7 @@ func TestProductRequest_Getters(t *testing.T) {
 	now := time.Now().UTC()
 	pr := rebuildProductRequest(
 		"req-getter", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("50.00"), customtypes.MustCurrency("EUR"),
+		customtypes.MustNewPrice("50.00"),
 		valueobject.ConditionFair, valueobject.ProductRequestStatusApproved,
 		makeAttachments(), "email@test.com", "not good enough", "internal note",
 		now, now, nil,
@@ -243,7 +245,7 @@ func TestProductRequest_Update(t *testing.T) {
 	t.Parallel()
 	pr := rebuildProductRequest(
 		"req-upd", "seller-001", "cat-001", "Old Title", "Old Desc",
-		customtypes.MustNewPrice("10.00"), customtypes.MustCurrency("USD"),
+		customtypes.MustNewPrice("10.00"),
 		valueobject.ConditionFair, valueobject.ProductRequestStatusPending,
 		nil, "old@email.com", "", "",
 		time.Now().UTC(), time.Now().UTC(), nil,
@@ -251,8 +253,8 @@ func TestProductRequest_Update(t *testing.T) {
 
 	newImages := makeAttachments()
 	err := pr.Update(
-		"New Title", "New Desc", "cat-002",
-		customtypes.MustNewPrice("20.00"), customtypes.MustCurrency("EUR"),
+		"New Title", "New Desc", "cat-002", nil,
+		customtypes.MustNewPrice("20.00"),
 		valueobject.ConditionLikeNew, newImages, "new@email.com",
 	)
 
@@ -271,9 +273,6 @@ func TestProductRequest_Update(t *testing.T) {
 	if !pr.ExpectedPrice().Equal(customtypes.MustNewPrice("20.00")) {
 		t.Errorf("ExpectedPrice() = %v, want %v", pr.ExpectedPrice(), customtypes.MustNewPrice("20.00"))
 	}
-	if pr.Currency() != customtypes.MustCurrency("EUR") {
-		t.Errorf("Currency() = %v, want %v", pr.Currency(), customtypes.MustCurrency("EUR"))
-	}
 	if pr.Condition() != valueobject.ConditionLikeNew {
 		t.Errorf("Condition() = %v, want %v", pr.Condition(), valueobject.ConditionLikeNew)
 	}
@@ -286,21 +285,21 @@ func TestProductRequest_Update_NotEditableWhenApproved(t *testing.T) {
 	t.Parallel()
 	pr := rebuildProductRequest(
 		"req-upd-app", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, valueobject.ProductRequestStatusApproved,
 		nil, "email@test.com", "", "",
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
-	err := pr.Update("New Title", "New Desc", "cat-001",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+	err := pr.Update("New Title", "New Desc", "cat-001", nil,
+		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, nil, "new@email.com")
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !apperrors.IsCode(err, "PRODUCT_REQUEST_NOT_EDITABLE") {
-		t.Errorf("error code mismatch: got %v", err)
+		t.Errorf("error mismatch: got %v", err)
 	}
 	// Title must remain unchanged.
 	if pr.Title() != "Title" {
@@ -312,21 +311,21 @@ func TestProductRequest_Update_NotEditableWhenRejected(t *testing.T) {
 	t.Parallel()
 	pr := rebuildProductRequest(
 		"req-upd-rej", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, valueobject.ProductRequestStatusRejected,
 		nil, "email@test.com", "reason", "",
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
-	err := pr.Update("New Title", "New Desc", "cat-001",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+	err := pr.Update("New Title", "New Desc", "cat-001", nil,
+		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, nil, "new@email.com")
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !apperrors.IsCode(err, "PRODUCT_REQUEST_NOT_EDITABLE") {
-		t.Errorf("error code mismatch: got %v", err)
+		t.Errorf("error mismatch: got %v", err)
 	}
 	if pr.Title() != "Title" {
 		t.Errorf("Title() = %q, want unchanged %q", pr.Title(), "Title")
@@ -337,14 +336,14 @@ func TestProductRequest_Update_StatusUnchanged(t *testing.T) {
 	t.Parallel()
 	pr := rebuildProductRequest(
 		"req-upd-status", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
 		nil, "email@test.com", "", "",
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
-	err := pr.Update("New Title", "New Desc", "cat-001",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+	err := pr.Update("New Title", "New Desc", "cat-001", nil,
+		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, nil, "new@email.com")
 
 	if err != nil {
@@ -365,7 +364,7 @@ func TestUnmarshalProductRequestFromDB(t *testing.T) {
 
 	pr := rebuildProductRequest(
 		"req-db", "seller-db", "cat-db", "Stored Title", "Stored Desc",
-		customtypes.MustNewPrice("88.00"), customtypes.MustCurrency("GBP"),
+		customtypes.MustNewPrice("88.00"),
 		valueobject.ConditionPoor, valueobject.ProductRequestStatusRejected,
 		images, "stored@email.com", "too expensive", "check again",
 		now, now, &deletedAt,
@@ -391,7 +390,7 @@ func TestProductRequest_imageURLs(t *testing.T) {
 	t.Parallel()
 	pr := rebuildProductRequest(
 		"req-img", "seller-001", "cat-001", "Title", "Desc",
-		customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
+		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
 		customtypes.Attachments{
 			{Key: "products/img-a.jpg", ContentType: "image/jpeg", Type: customtypes.AttachmentTypeImage},
@@ -400,15 +399,15 @@ func TestProductRequest_imageURLs(t *testing.T) {
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
-	urls := pr.imageURLs()
+	urls := pr.Images()
 	if len(urls) != 2 {
 		t.Fatalf("len(urls) = %d, want 2", len(urls))
 	}
-	if urls[0] != "products/img-a.jpg" {
-		t.Errorf("urls[0] = %q, want %q", urls[0], "products/img-a.jpg")
+	if urls[0].Key != "products/img-a.jpg" {
+		t.Errorf("urls[0].Key = %q, want %q", urls[0].Key, "products/img-a.jpg")
 	}
-	if urls[1] != "products/img-b.png" {
-		t.Errorf("urls[1] = %q, want %q", urls[1], "products/img-b.png")
+	if urls[1].Key != "products/img-b.png" {
+		t.Errorf("urls[1].Key = %q, want %q", urls[1].Key, "products/img-b.png")
 	}
 }
 
@@ -426,8 +425,8 @@ func TestProductRequest_Validate(t *testing.T) {
 			setup: func() *ProductRequest {
 				return UnmarshalProductRequestFromDB(
 					"id", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
-					valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
+					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
 					nil, "email@test.com", "", "",
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
@@ -439,8 +438,8 @@ func TestProductRequest_Validate(t *testing.T) {
 			setup: func() *ProductRequest {
 				return UnmarshalProductRequestFromDB(
 					"  ", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
-					valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
+					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
 					nil, "email@test.com", "", "",
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
@@ -452,8 +451,8 @@ func TestProductRequest_Validate(t *testing.T) {
 			setup: func() *ProductRequest {
 				return UnmarshalProductRequestFromDB(
 					"id", "  ", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
-					valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
+					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
 					nil, "email@test.com", "", "",
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
@@ -465,8 +464,8 @@ func TestProductRequest_Validate(t *testing.T) {
 			setup: func() *ProductRequest {
 				return UnmarshalProductRequestFromDB(
 					"id", "seller", "  ", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
-					valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
+					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
 					nil, "email@test.com", "", "",
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
@@ -478,8 +477,8 @@ func TestProductRequest_Validate(t *testing.T) {
 			setup: func() *ProductRequest {
 				return UnmarshalProductRequestFromDB(
 					"id", "seller", "cat", "  ", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
-					valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
+					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
 					nil, "email@test.com", "", "",
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
@@ -491,8 +490,8 @@ func TestProductRequest_Validate(t *testing.T) {
 			setup: func() *ProductRequest {
 				return UnmarshalProductRequestFromDB(
 					"id", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("0"), customtypes.MustCurrency("USD"),
-					valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
+					customtypes.MustNewPrice("0"), valueobject.CurrencyUSD,
+					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
 					nil, "email@test.com", "", "",
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
@@ -505,8 +504,8 @@ func TestProductRequest_Validate(t *testing.T) {
 				bad, _ := valueobject.NewConditionFromString("invalid")
 				return UnmarshalProductRequestFromDB(
 					"id", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
-					bad, valueobject.ProductRequestStatusPending,
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
+					nil, bad, valueobject.ProductRequestStatusPending,
 					nil, "email@test.com", "", "",
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
@@ -519,8 +518,8 @@ func TestProductRequest_Validate(t *testing.T) {
 				bad, _ := valueobject.NewProductRequestStatusFromString("unknown")
 				return UnmarshalProductRequestFromDB(
 					"id", "seller", "cat", "title", "desc",
-					customtypes.MustNewPrice("1.00"), customtypes.MustCurrency("USD"),
-					valueobject.ConditionNew, bad,
+					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
+					nil, valueobject.ConditionNew, bad,
 					nil, "email@test.com", "", "",
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)

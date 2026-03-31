@@ -1,10 +1,11 @@
 package types
 
 type HttpResponse struct {
-	Success bool           `json:"success"`
-	Message string         `json:"message"`
-	Data    any            `json:"data,omitempty"`
-	Error   *ErrorResponse `json:"error,omitempty"`
+	Success    bool           `json:"success"`
+	Message    string         `json:"message"`
+	Data       any            `json:"data,omitempty"`
+	Error      *ErrorResponse `json:"error,omitempty"`
+	Pagination *Pagination    `json:"pagination,omitempty"`
 }
 
 type ErrorResponse struct {

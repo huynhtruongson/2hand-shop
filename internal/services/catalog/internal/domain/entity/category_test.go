@@ -1,8 +1,11 @@
 package entity
 
 import (
+	stderrors "errors"
 	"testing"
 	"time"
+
+	apperrors "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 )
 
 func TestNewCategory(t *testing.T) {
@@ -36,7 +39,6 @@ func TestNewCategory(t *testing.T) {
 		{
 			name: "auto-generates slug from name when empty",
 			mutate: func(a []any) { a[3] = "" },
-			// slug field is empty string, so name will be used to generate it
 			wantErr: false,
 		},
 	}
@@ -59,7 +61,14 @@ func TestNewCategory(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected error, got nil")
 				}
-				// For validation errors we just check that we got an error
+				if tc.errDetail != "" {
+					var appErr *apperrors.AppError
+					if stderrors.As(err, &appErr) {
+						if _, ok := appErr.Details()[tc.errDetail]; !ok {
+							t.Errorf("error details %v does not contain key %q", appErr.Details(), tc.errDetail)
+						}
+					}
+				}
 				return
 			}
 			if err != nil {
@@ -68,14 +77,15 @@ func TestNewCategory(t *testing.T) {
 			if c == nil {
 				t.Fatal("expected category, got nil")
 			}
-			if !c.IsActive() {
-				t.Error("expected IsActive() = true")
+			// A newly created category has no deletedAt, so it is active.
+			if c.DeletedAt() != nil {
+				t.Error("expected new category to be active (deletedAt = nil)")
 			}
 		})
 	}
 }
 
-func TestCategory_Activate_Deactivate(t *testing.T) {
+func TestCategory_IsActive(t *testing.T) {
 	t.Parallel()
 
 	c, err := NewCategory("cat-1", "Electronics", "Desc", "", "", 1)
@@ -83,18 +93,9 @@ func TestCategory_Activate_Deactivate(t *testing.T) {
 		t.Fatalf("NewCategory failed: %v", err)
 	}
 
-	if !c.IsActive() {
+	// Newly created category is active (deletedAt is nil).
+	if c.DeletedAt() != nil {
 		t.Error("expected new category to be active")
-	}
-
-	c.Deactivate()
-	if c.IsActive() {
-		t.Error("expected Deactivate() to set IsActive=false")
-	}
-
-	c.Activate()
-	if !c.IsActive() {
-		t.Error("expected Activate() to set IsActive=true")
 	}
 }
 
@@ -136,16 +137,18 @@ func TestUnmarshalCategoryFromDB(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now().UTC()
+	deletedAt := now.Add(-time.Hour)
 	c := UnmarshalCategoryFromDB(
 		"id", "Name", "Desc", "slug", "icon.png",
-		5, false, now, now,
+		5, now, now, &deletedAt,
 	)
 
 	if c.ID() != "id" {
 		t.Errorf("ID = %q, want %q", c.ID(), "id")
 	}
-	if c.IsActive() {
-		t.Error("expected IsActive() = false")
+	// deletedAt is set, so the category is inactive.
+	if c.DeletedAt() == nil {
+		t.Error("expected DeletedAt to be set")
 	}
 }
 

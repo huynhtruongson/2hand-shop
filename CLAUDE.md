@@ -266,11 +266,10 @@ The `details` field is only present for validation errors.
 
 ### Catalog
 - A `Product` aggregate must have: non-empty `Title`, a valid `CategoryID`, a positive `Price`, and a valid `Condition` (`new`, `like_new`, `good`, `fair`, `poor`).
-- Status transitions: `draft` → `active` → `sold` | `archived`. No backward transitions.
-- A product can only be mutated by its owning seller (`SellerID`).
+- Status transitions: `draft` → `published` → `sold` | `archived`. No backward transitions.
 
 ### Commerce
-- An `Order` can only be created from an `active` product.
+- An `Order` can only be created from an `published` product.
 - Once an `Order` is `placed`, the product status moves to `sold` (via domain event).
 - Payment must be confirmed before the order moves to `confirmed`.
 - Order status flow: `pending` → `confirmed` → `shipped` → `delivered` | `cancelled`.

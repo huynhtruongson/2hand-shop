@@ -10,43 +10,29 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/valueobject"
 )
 
-// ProductRequest is the root aggregate for a client-submitted product sell request.
-// It mirrors the Product aggregate with additional seller-supplied fields and a
-// client-editable lifecycle controlled by the admin.
-//
-// Lifecycle:
-//   - pending  → approved | rejected  (admin transitions; terminal once reached)
-//   - pending  → pending             (seller may update mutable fields)
-//   - approved | rejected            → dead end (no further mutations allowed)
-//
-// All fields are unexported; access is via getter methods.
 type ProductRequest struct {
 	id                string
 	sellerID          string
 	categoryID        string
 	title             string
 	description       string
-	currency          customtypes.Currency
+	brand             *string
+	currency          valueobject.Currency
 	condition         valueobject.Condition
-	images            customtypes.Attachments
 	status            valueobject.ProductRequestStatus
-	expectedPrice     customtypes.Price // price the seller expects to receive
-	contactInfo       string            // seller's preferred contact details
-	adminRejectReason string            // set by admin when status becomes rejected
-	adminNote         string            // internal admin note (not visible to seller)
+	images            customtypes.Attachments
+	expectedPrice     customtypes.Price
+	contactInfo       string
+	adminRejectReason string
+	adminNote         string
 	createdAt         time.Time
 	updatedAt         time.Time
-	deletedAt         *time.Time // soft-delete marker; nil means not deleted
+	deletedAt         *time.Time
 }
 
-// ── Constructor ──────────────────────────────────────────────────────────────
-
-// NewProductRequest creates a new ProductRequest in pending status.
-// It validates all fields and returns an error if any constraint is violated.
-// The returned ProductRequest collects a ProductRequestCreated domain event.
 func NewProductRequest(
-	id, sellerID, categoryID, title, description string,
-	expectedPrice customtypes.Price, currency customtypes.Currency, condition valueobject.Condition,
+	id, sellerID, categoryID, title, description string, brand *string,
+	expectedPrice customtypes.Price, condition valueobject.Condition,
 	images customtypes.Attachments, contactInfo string,
 ) (*ProductRequest, error) {
 
@@ -56,7 +42,8 @@ func NewProductRequest(
 		categoryID:    categoryID,
 		title:         title,
 		description:   description,
-		currency:      currency,
+		brand:         brand,
+		currency:      valueobject.CurrencyUSD,
 		condition:     condition,
 		images:        images,
 		status:        valueobject.ProductRequestStatusPending,
@@ -72,14 +59,13 @@ func NewProductRequest(
 	return pr, nil
 }
 
-// ── Getters ───────────────────────────────────────────────────────────────────
-
 func (pr *ProductRequest) ID() string                               { return pr.id }
 func (pr *ProductRequest) SellerID() string                         { return pr.sellerID }
 func (pr *ProductRequest) CategoryID() string                       { return pr.categoryID }
 func (pr *ProductRequest) Title() string                            { return pr.title }
 func (pr *ProductRequest) Description() string                      { return pr.description }
-func (pr *ProductRequest) Currency() customtypes.Currency           { return pr.currency }
+func (pr *ProductRequest) Brand() *string                           { return pr.brand }
+func (pr *ProductRequest) Currency() valueobject.Currency           { return pr.currency }
 func (pr *ProductRequest) Condition() valueobject.Condition         { return pr.condition }
 func (pr *ProductRequest) Images() customtypes.Attachments          { return pr.images }
 func (pr *ProductRequest) Status() valueobject.ProductRequestStatus { return pr.status }
@@ -91,15 +77,15 @@ func (pr *ProductRequest) CreatedAt() time.Time                     { return pr.
 func (pr *ProductRequest) UpdatedAt() time.Time                     { return pr.updatedAt }
 func (pr *ProductRequest) DeletedAt() *time.Time                    { return pr.deletedAt }
 
-// ── Domain methods ────────────────────────────────────────────────────────────
+func (pr *ProductRequest) MarkDeleted() {
+	now := time.Now().UTC()
+	pr.deletedAt = &now
+	pr.updatedAt = now
+}
 
-// Update updates mutable fields of the ProductRequest.
-// Only pending requests may be updated; approved and rejected are dead ends.
-// Returns ErrProductRequestNotEditable if the request is not in pending status.
 func (pr *ProductRequest) Update(
-	title, description string, categoryID string,
-	expectedPrice customtypes.Price, currency customtypes.Currency,
-	condition valueobject.Condition, images customtypes.Attachments,
+	title, description string, categoryID string, brand *string,
+	expectedPrice customtypes.Price, condition valueobject.Condition, images customtypes.Attachments,
 	contactInfo string,
 ) error {
 	if pr.status != valueobject.ProductRequestStatusPending {
@@ -111,9 +97,9 @@ func (pr *ProductRequest) Update(
 	pr.title = title
 	pr.description = description
 	pr.categoryID = categoryID
-	pr.currency = currency
 	pr.condition = condition
 	pr.images = images
+	pr.brand = brand
 	pr.expectedPrice = expectedPrice
 	pr.contactInfo = contactInfo
 	pr.updatedAt = time.Now().UTC()
@@ -125,22 +111,9 @@ func (pr *ProductRequest) Update(
 	return nil
 }
 
-// imageURLs is a helper that extracts raw URL strings from the Attachments.
-func (pr *ProductRequest) imageURLs() []string {
-	urls := make([]string, len(pr.images))
-	for i, img := range pr.images {
-		urls[i] = img.Key
-	}
-	return urls
-}
-
-// ── Factory / DB reconstruction ───────────────────────────────────────────────
-
-// UnmarshalProductRequestFromDB reconstructs a ProductRequest from persistence storage.
-// It skips validation so that stored (potentially legacy) data can still be loaded.
 func UnmarshalProductRequestFromDB(
 	id, sellerID, categoryID, title, description string,
-	expectedPrice customtypes.Price, currency customtypes.Currency,
+	expectedPrice customtypes.Price, currency valueobject.Currency, brand *string,
 	condition valueobject.Condition, status valueobject.ProductRequestStatus,
 	images customtypes.Attachments, contactInfo string,
 	adminRejectReason string, adminNote string,
@@ -153,6 +126,7 @@ func UnmarshalProductRequestFromDB(
 		title:             title,
 		description:       description,
 		currency:          currency,
+		brand:             brand,
 		condition:         condition,
 		images:            images,
 		status:            status,
@@ -166,9 +140,6 @@ func UnmarshalProductRequestFromDB(
 	}
 }
 
-// ── Validation ────────────────────────────────────────────────────────────────
-
-// validate enforces all invariant constraints on the ProductRequest aggregate.
 func (pr *ProductRequest) validate() error {
 	switch {
 	case strings.TrimSpace(pr.id) == "":
@@ -181,8 +152,8 @@ func (pr *ProductRequest) validate() error {
 		return caterrors.ErrValidation.WithDetail("title", "title is empty")
 	case !pr.expectedPrice.IsPositive():
 		return caterrors.ErrValidation.WithDetail("expected_price", "expected_price must be positive")
-	case pr.currency == "":
-		return caterrors.ErrValidation.WithDetail("currency", "currency is empty")
+	case !pr.currency.IsValid():
+		return caterrors.ErrValidation.WithDetail("currency", "currency is not a valid value")
 	case !pr.condition.IsValid():
 		return caterrors.ErrValidation.WithDetail("condition", "condition is not a valid value")
 	case !isValidProductRequestStatus(pr.status):
@@ -191,7 +162,6 @@ func (pr *ProductRequest) validate() error {
 	return nil
 }
 
-// isValidProductRequestStatus returns true if s is one of the defined product request statuses.
 func isValidProductRequestStatus(s valueobject.ProductRequestStatus) bool {
 	return slices.Contains(valueobject.AllProductRequestStatuses(), s)
 }

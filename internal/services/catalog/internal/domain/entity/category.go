@@ -17,9 +17,9 @@ type Category struct {
 	slug        string
 	iconURL     string
 	sortOrder   int
-	isActive    bool
 	createdAt   time.Time
 	updatedAt   time.Time
+	deletedAt   *time.Time
 }
 
 // NewCategory constructs a new Category. It validates required fields and
@@ -31,7 +31,6 @@ func NewCategory(id, name, description, slug, iconURL string, sortOrder int) (*C
 		description: description,
 		iconURL:     iconURL,
 		sortOrder:   sortOrder,
-		isActive:    true,
 		createdAt:   time.Now().UTC(),
 		updatedAt:   time.Now().UTC(),
 	}
@@ -51,29 +50,17 @@ func NewCategory(id, name, description, slug, iconURL string, sortOrder int) (*C
 
 // ── Getters ───────────────────────────────────────────────────────────────────
 
-func (c *Category) ID() string    { return c.id }
-func (c *Category) Name() string  { return c.name }
-func (c *Category) Description() string { return c.description }
-func (c *Category) Slug() string  { return c.slug }
-func (c *Category) IconURL() string { return c.iconURL }
-func (c *Category) SortOrder() int { return c.sortOrder }
-func (c *Category) IsActive() bool { return c.isActive }
-func (c *Category) CreatedAt() time.Time { return c.createdAt }
-func (c *Category) UpdatedAt() time.Time { return c.updatedAt }
+func (c *Category) ID() string           { return c.id }
+func (c *Category) Name() string         { return c.name }
+func (c *Category) Description() string  { return c.description }
+func (c *Category) Slug() string         { return c.slug }
+func (c *Category) IconURL() string      { return c.iconURL }
+func (c *Category) SortOrder() int       { return c.sortOrder }
+func (c *Category) CreatedAt() time.Time  { return c.createdAt }
+func (c *Category) UpdatedAt() time.Time  { return c.updatedAt }
+func (c *Category) DeletedAt() *time.Time { return c.deletedAt }
 
 // ── Business logic ───────────────────────────────────────────────────────────
-
-// Deactivate marks the category as inactive.
-func (c *Category) Deactivate() {
-	c.isActive = false
-	c.updatedAt = time.Now().UTC()
-}
-
-// Activate marks the category as active.
-func (c *Category) Activate() {
-	c.isActive = true
-	c.updatedAt = time.Now().UTC()
-}
 
 // Update updates the mutable name and description fields.
 func (c *Category) Update(name, description string) error {
@@ -90,8 +77,8 @@ func (c *Category) Update(name, description string) error {
 // (potentially legacy) data can still be loaded.
 func UnmarshalCategoryFromDB(
 	id, name, description, slug, iconURL string,
-	sortOrder int, isActive bool,
-	createdAt, updatedAt time.Time,
+	sortOrder int,
+	createdAt, updatedAt time.Time, deletedAt *time.Time,
 ) *Category {
 	return &Category{
 		id:          id,
@@ -100,9 +87,9 @@ func UnmarshalCategoryFromDB(
 		slug:        slug,
 		iconURL:     iconURL,
 		sortOrder:   sortOrder,
-		isActive:    isActive,
 		createdAt:   createdAt,
 		updatedAt:   updatedAt,
+		deletedAt:   deletedAt,
 	}
 }
 

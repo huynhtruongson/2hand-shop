@@ -7,10 +7,10 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/domain/valueobject"
 
+	"github.com/google/uuid"
 	appErr "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/utils"
 )
 
 type AuthService struct {
@@ -52,7 +52,7 @@ func (as *AuthService) SignUp(ctx context.Context, params SignUpParams) (*SignUp
 		if user != nil {
 			return errors.ErrUserAlreadyExists
 		}
-		userID := utils.GenerateXID()
+		userID := uuid.NewString()
 
 		out, err := as.authProvider.SignUp(ctx, params.Email, params.Password,
 			map[string]string{
