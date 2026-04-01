@@ -4,26 +4,13 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"time"
 
-	"github.com/avast/retry-go"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 
 	"github.com/rabbitmq/amqp091-go"
 )
-
-const (
-	retryAttempts = 3
-	retryDelay    = 300 * time.Millisecond
-)
-
-var retryOptions = []retry.Option{
-	retry.Attempts(retryAttempts),
-	retry.Delay(retryDelay),
-	retry.DelayType(retry.BackOffDelay),
-}
 
 type Consumer interface {
 	Start(ctx context.Context) error
@@ -173,13 +160,10 @@ func (r *rabbitMQConsumer) handleReceiveMessage(ctx context.Context, raw *amqp09
 	msg := types.NewDeliveryMessage(raw)
 	meta := msg.Metadata()
 
-	err := retry.Do(func() error {
-		return r.handler(ctx, msg)
-	}, append(retryOptions, retry.Context(ctx))...)
-
+	err := r.handler(ctx, msg)
 	if err != nil {
 		r.logger.Error(
-			"consumer: handler failed after retries, nacking message",
+			"consumer: handler returned error, nacking message",
 			"consumer", r.config.Name,
 			"message_id", meta.ID,
 			"message_type", meta.Type,

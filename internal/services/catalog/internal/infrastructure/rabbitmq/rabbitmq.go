@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/consumer"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/manager"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/producer"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/config"
@@ -41,6 +42,24 @@ func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger) (manage
 					Name: "catalog.events",
 					Type: producer.ExchangeTopic,
 				})
+		})
+		b.AddConsumer("catalog-service.catalog.products.events", func(cb consumer.RabbitMQConsumerConfigurationBuilder) {
+			cb.WithBindingOptions(&consumer.RabbitMQBindingOptions{
+				Exchange: "catalog.events",
+				Key:      "catalog.product.*",
+			})
+			// WithQueueOptions(&consumer.QueueOptions{
+			// 	Durable:    true,
+			// 	AutoDelete: false,
+			// }).
+			// WithQueues(consumer.Queue{
+			// 	Name: "catalog-service.catalog.products",
+			// }).
+			// WithExchangeBindings(consumer.ExchangeBinding{
+			// 	ExchangeName: "catalog.events",
+			// 	RoutingKeys:  []string{"catalog.product.created", "catalog.product.updated"},
+			// })
+
 		})
 	})
 
