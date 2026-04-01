@@ -9,7 +9,7 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/message"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -170,7 +170,7 @@ func (r *rabbitMQConsumer) reConsumeOnDropConnection(ctx context.Context) {
 }
 
 func (r *rabbitMQConsumer) handleReceiveMessage(ctx context.Context, raw *amqp091.Delivery) {
-	msg := message.NewDeliveryMessage(raw)
+	msg := types.NewDeliveryMessage(raw)
 	meta := msg.Metadata()
 
 	err := retry.Do(func() error {

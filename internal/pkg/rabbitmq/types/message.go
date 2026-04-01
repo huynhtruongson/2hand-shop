@@ -1,4 +1,4 @@
-package message
+package types
 
 import (
 	"encoding/json"
@@ -11,14 +11,7 @@ import (
 
 const ContentTypeJSON = "application/json"
 
-type IMessage interface {
-	EventName() string
-	Exchange() string
-	Message() RabbitMQMessage
-}
-
 type Envelope[T any] struct {
-	ID            string    `json:"id"`
 	Type          string    `json:"type"`
 	Timestamp     time.Time `json:"timestamp"`
 	CorrelationID string    `json:"correlation_id,omitempty"`
@@ -26,34 +19,16 @@ type Envelope[T any] struct {
 }
 
 // NewEnvelope builds a ready-to-publish Envelope for the given payload.
-func NewEnvelope[T any](msgType string, payload T, opts ...EnvelopeOption) *Envelope[T] {
+func NewEnvelope[T any](msgType string, payload T, correlationID string) *Envelope[T] {
 	e := &Envelope[T]{
-		ID:        uuid.New().String(),
-		Type:      msgType,
-		Timestamp: time.Now().UTC(),
-		Payload:   payload,
+		Type:          msgType,
+		Timestamp:     time.Now().UTC(),
+		Payload:       payload,
+		CorrelationID: correlationID,
 	}
-	for _, o := range opts {
-		o(e)
-	}
+
 	return e
 }
-
-// EnvelopeOption is a functional option for NewEnvelope.
-type EnvelopeOption func(h any)
-
-// WithCorrelationID sets the correlation ID on any *Envelope[T].
-func WithCorrelationID(id string) EnvelopeOption {
-	return func(h any) {
-		// We use a type-switch so callers never need to worry about T.
-		type correlatable interface{ setCorrelationID(string) }
-		if c, ok := h.(correlatable); ok {
-			c.setCorrelationID(id)
-		}
-	}
-}
-
-func (e *Envelope[T]) setCorrelationID(id string) { e.CorrelationID = id }
 
 // --------------------------------- publishing ---------------------------------
 

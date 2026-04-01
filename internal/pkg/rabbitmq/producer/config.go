@@ -12,7 +12,7 @@ type Exchange struct {
 type RabbitMQProducerConfiguration struct {
 	AppId           string
 	ExchangeOptions *ExchangeOptions
-	// Exchanges       []Exchange
+	Exchanges       []Exchange
 }
 
 type RabbitMQProducerConfigurationBuilderFunc func(builder RabbitMQProducerConfigurationBuilder)

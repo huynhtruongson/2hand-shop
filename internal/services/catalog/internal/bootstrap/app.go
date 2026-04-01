@@ -1,86 +1,144 @@
 package bootstrap
 
-// type App struct {
-// 	cfg        config.Config
-// 	db         postgressqlx.DB
-// 	logger     logger.Logger
-// 	httpServer *appHttp.HttpServer
-// }
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-// func NewApp() *App {
-// 	config, err := config.Load()
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	logger := zerolog.NewZeroLogger(zerolog.Config{
-// 		Level:       config.Logger.Level,
-// 		ServiceName: config.App.ServiceName,
-// 		Environment: config.App.Environment,
-// 	})
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger/zerolog"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
+	mqmanager "github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/manager"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/config"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/command"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/query"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/postgres"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/rabbitmq"
+	appHttp "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/transports/http"
+)
 
-// 	db, err := postgressqlx.NewDB(postgressqlx.Config{
-// 		Host:     config.Postgres.Host,
-// 		Port:     config.Postgres.Port,
-// 		User:     config.Postgres.User,
-// 		Password: config.Postgres.Password,
-// 		Name:     config.Postgres.DBName,
-// 		SSLMode:  config.Postgres.SSLMode,
-// 	})
-// 	if err != nil {
-// 		logger.Fatal("failed to connect postgres", "error", err)
-// 	}
+// App holds all managed dependencies for the catalog service.
+type App struct {
+	cfg            config.Config
+	db             postgressqlx.DB
+	logger         logger.Logger
+	httpServer     *appHttp.HttpServer
+	rabbitmqManager mqmanager.Manager
+}
 
-// 	cognitoProvider, err := cognito.NewCognitoProvider(config.Cognito)
-// 	if err != nil {
-// 		logger.Fatal("failed to init cognito provider", "error", err)
-// 	}
-// 	userRepo := postgres.NewUserRepo()
-// 	authHandler := appHttp.NewAuthHandler(auth.NewAuthService(logger, db, cognitoProvider, userRepo))
+// NewApp constructs the catalog service, wiring every dependency.
+// Call Run() on the returned App to start the service.
+func NewApp() *App {
+	cfg, err := config.Load()
+	if err != nil {
+		panic(err)
+	}
 
-// 	userHandler := appHttp.NewUserHandler(application.Application{
-// 		Commands: application.Commands{
-// 			UpdateProfile: command.NewUpdateProfileHandler(db, userRepo),
-// 		},
-// 		Queries: application.Queries{
-// 			Profile: query.NewProfileHandler(db, userRepo),
-// 		},
-// 	})
+	appLogger := zerolog.NewZeroLogger(zerolog.Config{
+		Level:       cfg.Logger.Level,
+		ServiceName: cfg.App.ServiceName,
+		Environment: cfg.App.Environment,
+	})
 
-// 	httpServer := appHttp.NewHttpServer(config, logger, authHandler, userHandler)
+	db, err := postgressqlx.NewDB(postgressqlx.Config{
+		Host:     cfg.Postgres.Host,
+		Port:     cfg.Postgres.Port,
+		User:     cfg.Postgres.User,
+		Password: cfg.Postgres.Password,
+		Name:     cfg.Postgres.DBName,
+		SSLMode:  cfg.Postgres.SSLMode,
+	})
+	if err != nil {
+		appLogger.Fatal("failed to connect postgres", "error", err)
+	}
 
-// 	return &App{
-// 		cfg:        config,
-// 		db:         db,
-// 		logger:     logger,
-// 		httpServer: httpServer,
-// 	}
-// }
+	// RabbitMQ is optional for local development; log and continue if unavailable.
+	var mqMgr mqmanager.Manager
+	mqMgr, err = rabbitmq.NewRabbitMQManager(cfg.RabbitMQ, appLogger)
+	if err != nil {
+		appLogger.Warn("failed to connect rabbitmq, running without message broker", "error", err)
+	}
 
-// func (a *App) Run() {
-// 	a.logger.Info(fmt.Sprintf("Starting %s service", a.cfg.App.ServiceName))
+	// Infrastructure adapters (PostgreSQL repositories).
+	productRepo := postgres.NewProductRepo()
+	// categoryRepo := postgres.NewCategoryRepo() // TODO: wire when category handlers are added
 
-// 	go func() {
-// 		a.logger.Info(fmt.Sprintf("%s service is running on %s", a.cfg.App.ServiceName, a.httpServer.Addr()))
-// 		if err := a.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-// 			a.logger.Fatal("server error", "error", err)
-// 		}
-// 	}()
-// 	// Graceful shutdown
-// 	quit := make(chan os.Signal, 1)
-// 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-// 	<-quit
-// 	a.logger.Info("Shutting down server...")
+	// Application layer — command and query handlers.
+	app := application.Application{
+		Commands: application.Commands{
+			CreateProduct: command.NewCreateProductHandler(productRepo, db),
+			UpdateProduct: command.NewUpdateProductHandler(productRepo, db),
+			DeleteProduct: command.NewDeleteProductHandler(productRepo, db),
+		},
+		Queries: application.Queries{
+			ListProduct: query.NewListProductHandler(productRepo, db),
+		},
+	}
 
-// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-// 	defer cancel()
+	// Transport layer.
+	catalogHandler := appHttp.NewCatalogHandler(app)
+	httpServer := appHttp.NewHttpServer(cfg, appLogger, catalogHandler)
 
-// 	if err := a.httpServer.Shutdown(ctx); err != nil {
-// 		a.logger.Fatal("http server forced to shutdown", "error", err)
-// 	}
-// 	if err := a.db.Close(); err != nil {
-// 		a.logger.Fatal("close db failed", "error", err)
-// 	}
+	return &App{
+		cfg:            cfg,
+		db:             db,
+		logger:         appLogger,
+		httpServer:     httpServer,
+		rabbitmqManager: mqMgr,
+	}
+}
 
-// 	a.logger.Info("Shutting down server gracefully")
+// Run starts the HTTP server and RabbitMQ consumers, then blocks until a
+// shutdown signal (SIGINT / SIGTERM) is received.
+func (a *App) Run() {
+	a.logger.Info(fmt.Sprintf("Starting %s service", a.cfg.App.ServiceName))
 
-// }
+	// Start HTTP server in background.
+	go func() {
+		a.logger.Info(fmt.Sprintf("%s HTTP server listening on %s", a.cfg.App.ServiceName, a.httpServer.Addr()))
+		if err := a.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			a.logger.Fatal("http server error", "error", err)
+		}
+	}()
+
+	// Start RabbitMQ consumers in background.
+	if a.rabbitmqManager != nil {
+		go func() {
+			if err := a.rabbitmqManager.Start(context.Background()); err != nil {
+				a.logger.Error("rabbitmq manager start failed", "error", err)
+			}
+		}()
+	}
+
+	// Wait for shutdown signal.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	a.logger.Info("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := a.httpServer.Shutdown(ctx); err != nil {
+		a.logger.Fatal("http server forced to shutdown", "error", err)
+	}
+
+	if a.rabbitmqManager != nil {
+		if err := a.rabbitmqManager.Stop(); err != nil {
+			a.logger.Error("rabbitmq manager stop failed", "error", err)
+		}
+	}
+
+	if err := a.db.Close(); err != nil {
+		a.logger.Fatal("close db failed", "error", err)
+	}
+
+	a.logger.Info("Shutdown complete")
+}

@@ -54,23 +54,11 @@ func (r *rabbitMQManager) Producer() producer.Producer {
 }
 
 func (r *rabbitMQManager) Start(ctx context.Context) error {
-	// if r.config.ProducerConfiguration != nil {
-	// 	ch, err := r.producerConnection.Channel()
-	// 	defer ch.Close()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	for _, exchange := range r.config.ProducerConfiguration.Exchanges {
-	// 		if err := ch.ExchangeDeclare(exchange.Name, string(exchange.Type),
-	// 			r.config.ProducerConfiguration.ExchangeOptions.Durable,
-	// 			r.config.ProducerConfiguration.ExchangeOptions.AutoDelete,
-	// 			false,
-	// 			false,
-	// 			r.config.ProducerConfiguration.ExchangeOptions.Args); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
+	if r.producer != nil {
+		if err := r.producer.ExchangesDeclare(ctx); err != nil {
+			return err
+		}
+	}
 
 	for _, consumer := range r.consumers {
 		if err := consumer.Start(ctx); err != nil {

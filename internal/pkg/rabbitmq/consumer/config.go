@@ -3,10 +3,10 @@ package consumer
 import (
 	"context"
 
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/message"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 )
 
-type RabbitMQConsumerHandler func(ctx context.Context, msg *message.DeliveryMessage) error
+type RabbitMQConsumerHandler func(ctx context.Context, msg *types.DeliveryMessage) error
 
 type RabbitMQConsumerConfigurationBuilderFunc func(builder RabbitMQConsumerConfigurationBuilder)
 

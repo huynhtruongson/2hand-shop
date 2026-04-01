@@ -41,7 +41,7 @@ type listProductHandler struct {
 // NewListProductHandler returns a ListProductHandler that uses repo for
 // data retrieval.
 func NewListProductHandler(repo repository.ProductRepository, db postgressqlx.DB) ListProductHandler {
-	return &listProductHandler{repo: repo}
+	return &listProductHandler{repo: repo, db: db}
 }
 
 // Handle processes ListProductQuery and returns a paginated product listing.

@@ -9,7 +9,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/auth"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/middleware"
-	"github.com/huynhtruongson/2hand-shop/internal/services/identity/config"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/config"
 )
 
 type HttpServer struct {

@@ -3,16 +3,18 @@ package producer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/message"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 	"github.com/rabbitmq/amqp091-go"
 )
 
 type Producer interface {
-	PublishMessage(ctx context.Context, exchange, routingKey string, msg *message.RabbitMQMessage) error
+	PublishMessage(ctx context.Context, message types.DomainEvent, opts ...types.MessageOption) error
+	ExchangesDeclare(ctx context.Context) error
 }
 type rabbitMQProducer struct {
 	connection connection.IConnection
@@ -28,10 +30,18 @@ func NewRabbitMQProducer(conn connection.IConnection, logger logger.Logger, conf
 	}
 }
 
-func (r *rabbitMQProducer) PublishMessage(ctx context.Context, exchange, routingKey string, msg *message.RabbitMQMessage) error {
+func (r *rabbitMQProducer) PublishMessage(ctx context.Context, msg types.DomainEvent, opts ...types.MessageOption) error {
 	if r.connection == nil {
 		return errors.New("connection is nil")
 	}
+
+	envelope := types.NewEnvelope(msg.EventType(), msg, msg.CorrelationID())
+
+	rabbitmqMsg, err := types.NewRabbitMQMessage(envelope, opts...)
+	if err != nil {
+		return fmt.Errorf("build RabbitMQ message: %w", err)
+	}
+
 	channel, err := r.connection.Channel()
 	if err != nil {
 		return err
@@ -43,12 +53,12 @@ func (r *rabbitMQProducer) PublishMessage(ctx context.Context, exchange, routing
 	confirms := make(chan amqp091.Confirmation, 1)
 	channel.NotifyPublish(confirms)
 
-	publishing := msg.ToPublishing(r.config.AppId)
+	publishing := rabbitmqMsg.ToPublishing(r.config.AppId)
 
 	if err := channel.PublishWithContext(
 		ctx,
-		exchange,
-		routingKey,
+		msg.Exchange(),
+		msg.EventType(),
 		true,
 		false,
 		publishing,
@@ -72,6 +82,36 @@ func (r *rabbitMQProducer) confirmMessage(ctx context.Context, confirms <-chan a
 	case <-ctx.Done():
 		return errors.New("confirmation timeout")
 	}
+}
+
+func (r *rabbitMQProducer) ExchangesDeclare(ctx context.Context) error {
+	if r.connection == nil {
+		return errors.New("connection is nil")
+	}
+	if len(r.config.Exchanges) == 0 {
+		return nil
+	}
+	ch, err := r.connection.Channel()
+	if err != nil {
+		return err
+	}
+	defer ch.Close()
+
+	for _, ex := range r.config.Exchanges {
+		if err := ch.ExchangeDeclare(
+			ex.Name,
+			string(ex.Type),
+			r.config.ExchangeOptions.Durable,
+			r.config.ExchangeOptions.AutoDelete,
+			false,
+			false,
+			r.config.ExchangeOptions.Args,
+		); err != nil {
+			return fmt.Errorf("failed to declare exchange %s: %w", ex.Name, err)
+		}
+		r.logger.Info("exchange declared", "exchange", ex.Name, "type", ex.Type)
+	}
+	return nil
 }
 
 var _ Producer = (*rabbitMQProducer)(nil)

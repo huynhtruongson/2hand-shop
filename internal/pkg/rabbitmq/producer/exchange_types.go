@@ -6,6 +6,6 @@ type ExchangeType string
 
 const (
 	ExchangeFanout ExchangeType = amqp091.ExchangeFanout
-	ExchangeDirect              = amqp091.ExchangeDirect
-	ExchangeTopic               = amqp091.ExchangeTopic
+	ExchangeDirect ExchangeType = amqp091.ExchangeDirect
+	ExchangeTopic  ExchangeType = amqp091.ExchangeTopic
 )
