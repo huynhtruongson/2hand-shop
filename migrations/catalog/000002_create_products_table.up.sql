@@ -13,9 +13,14 @@ CREATE TABLE products (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
-    CONSTRAINT products_pkey PRIMARY KEY (id) CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES categories (id) 
-    ON UPDATE CASCADE ON DELETE RESTRICT
+    CONSTRAINT products_pkey PRIMARY KEY (id),
+    CONSTRAINT products_category_id_fkey 
+        FOREIGN KEY (category_id) 
+        REFERENCES categories (id) 
+        ON UPDATE CASCADE 
+        ON DELETE RESTRICT
 );
+
 CREATE INDEX idx_products_category_id ON products (category_id);
 CREATE INDEX idx_products_status ON products (status);
 CREATE INDEX idx_products_condition ON products (condition);

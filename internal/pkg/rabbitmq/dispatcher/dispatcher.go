@@ -2,6 +2,8 @@ package dispatcher
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -10,6 +12,12 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 )
+
+// ErrEmptyRoutingKey is returned by Register/RegisterWildcard when given an empty routing key.
+var ErrEmptyRoutingKey = errors.New("dispatcher: routing key must not be empty")
+
+// ErrNilHandler is returned by Register/RegisterWildcard when a nil handler is passed.
+var ErrNilHandler = errors.New("dispatcher: handler function must not be nil")
 
 const (
 	// defaultRetryAttempts is the number of times a handler invocation is retried.
@@ -54,6 +62,59 @@ func NewEventDispatcher(log logger.Logger, retryOpts []retry.Option) *EventDispa
 		log:       log,
 		retryOpts: opts,
 	}
+}
+
+// WithRetryOptions sets the retry options used by the dispatcher.
+// By default, DefaultRetryOptions (3 attempts, 300 ms backoff) is used.
+// This method must be called before Register or RegisterWildcard if custom retry is needed.
+func (d *EventDispatcher) WithRetryOptions(opts ...retry.Option) *EventDispatcher {
+	d.retryOpts = opts
+	return d
+}
+
+// Register registers fn as the handler for the exact routing key routingKey.
+// The returned dispatcher allows chaining.
+func (d *EventDispatcher) Register(routingKey string, fn types.EventHandler) *EventDispatcher {
+	if err := validateKey(routingKey); err != nil {
+		panic(err)
+	}
+	if fn == nil {
+		panic(ErrNilHandler)
+	}
+	d.register(routingKey, NewEventHandler(fn))
+	return d
+}
+
+// RegisterWildcard registers fn as the handler for any routing key that matches
+// the wildcard pattern. The pattern uses a single asterisk (*) per segment to
+// match any non-empty string in that segment (e.g. "catalog.product.*" matches
+// both "catalog.product.created" and "catalog.product.deleted").
+//
+// Wildcard handlers are only consulted when no exact-match handler is found.
+func (d *EventDispatcher) RegisterWildcard(pattern string, fn types.EventHandler) *EventDispatcher {
+	if err := validateKey(pattern); err != nil {
+		panic(err)
+	}
+	if fn == nil {
+		panic(ErrNilHandler)
+	}
+	if !strings.Contains(pattern, "*") {
+		panic(fmt.Errorf("dispatcher: pattern %q contains no wildcard character '*'", pattern))
+	}
+	d.registerWildcard(pattern, NewEventHandler(fn))
+	return d
+}
+
+// validateKey checks that a routing key or pattern is non-empty and contains at least
+// one dot-separated segment.
+func validateKey(key string) error {
+	if strings.TrimSpace(key) == "" {
+		return ErrEmptyRoutingKey
+	}
+	if !strings.Contains(key, ".") {
+		return fmt.Errorf("dispatcher: routing key %q must contain at least one dot-separated segment", key)
+	}
+	return nil
 }
 
 // Handle implements consumer.RabbitMQConsumerHandler. It routes the incoming message

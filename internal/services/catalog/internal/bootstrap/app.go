@@ -13,6 +13,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger/zerolog"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/dispatcher"
 	mqmanager "github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/manager"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/config"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application"
@@ -62,10 +63,18 @@ func NewApp() *App {
 	// Infrastructure adapters (PostgreSQL repositories).
 	productRepo := postgres.NewProductRepo()
 
+	// RabbitMQ is optional for local development; log and continue if unavailable.
+	dispatcher := dispatcher.NewEventDispatcher(appLogger, nil)
+	var mqMgr mqmanager.Manager
+	mqMgr, err = rabbitmq.NewRabbitMQManager(cfg.RabbitMQ, appLogger, dispatcher)
+	if err != nil {
+		appLogger.Fatal("failed to connect rabbitmq, running without message broker", "error", err)
+	}
+
 	// Application layer — command, query, and event handlers.
 	app := application.Application{
 		Commands: application.Commands{
-			CreateProduct: command.NewCreateProductHandler(productRepo, db),
+			CreateProduct: command.NewCreateProductHandler(productRepo, db, mqMgr.Producer()),
 			UpdateProduct: command.NewUpdateProductHandler(productRepo, db),
 			DeleteProduct: command.NewDeleteProductHandler(productRepo, db),
 		},
@@ -77,15 +86,10 @@ func NewApp() *App {
 		},
 	}
 
-	// RabbitMQ is optional for local development; log and continue if unavailable.
-	var mqMgr mqmanager.Manager
-	mqMgr, err = rabbitmq.NewRabbitMQManager(cfg.RabbitMQ, appLogger, app)
-	if err != nil {
-		appLogger.Fatal("failed to connect rabbitmq, running without message broker", "error", err)
-	}
+	rabbitmq.BuildEventDispatcher(dispatcher, app.EventHandlers)
 
 	// Transport layer.
-	catalogHttpHandler := appHttp.NewCatalogHttpHandler(app)
+	catalogHandler := appHttp.NewCatalogHandler(app)
 	httpServer := appHttp.NewHttpServer(cfg, appLogger, catalogHandler)
 
 	return &App{

@@ -94,7 +94,7 @@ func (cp *CognitoProvider) SignIn(ctx context.Context, email, password string) (
 			return nil, svErr.ErrInternal.WithCause(err).WithInternal("CognitoProvider.SignIn")
 		}
 	}
-
+	fmt.Println("=======out", out)
 	tokens := out.AuthenticationResult
 	return &auth.AuthProviderSignInResp{
 		AccessToken:  aws.ToString(tokens.AccessToken),

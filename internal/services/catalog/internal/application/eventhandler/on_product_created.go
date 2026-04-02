@@ -23,12 +23,12 @@ func NewOnProductCreatedHandler() *onProductCreatedHandler {
 // ec provides access to the typed payload, correlation_id, timestamp, and RabbitMQ metadata.
 func (h *onProductCreatedHandler) Handle(ctx context.Context, ec types.EventContext) error {
 	p, ok := ec.Payload().(event.ProductCreatedEvent)
+	fmt.Printf("========= event context: %+v\n", ec)
+	fmt.Printf("========= payload: %+v\n", p)
+	fmt.Printf("========= correlation_id: %+v\n", ec.CorrelationID())
 	if !ok {
 		fmt.Println("========= not ProductCreatedEvent")
 		return nil
 	}
-	fmt.Printf("========= event context: %+v\n", ec)
-	fmt.Printf("========= payload: %+v\n", p)
-	fmt.Printf("========= correlation_id: %+v\n", ec.CorrelationID())
 	return nil
 }

@@ -61,5 +61,5 @@ func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *Catal
 		TokenUse:   "access",
 	}), auth.RequireRole("admin"))
 
-	r.POST("/catalog/products", catalogHandler.CreateProductHandler)
+	r.POST("/products", catalogHandler.CreateProductHandler)
 }

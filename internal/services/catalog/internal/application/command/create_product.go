@@ -32,16 +32,18 @@ type CreateProductResponse struct {
 	ProductID string
 }
 
+type publisher interface {
+	PublishMessage(ctx context.Context, message types.DomainEvent, opts ...types.MessageOption) error
+}
+
 type createProductHandler struct {
 	repo      repository.ProductRepository
 	db        postgressqlx.DB
-	publisher interface {
-		PublishMessage(ctx context.Context, message types.DomainEvent, opts ...types.MessageOption) error
-	}
+	publisher publisher
 }
 
-func NewCreateProductHandler(repo repository.ProductRepository, db postgressqlx.DB) CreateProductHandler {
-	return &createProductHandler{repo: repo, db: db}
+func NewCreateProductHandler(repo repository.ProductRepository, db postgressqlx.DB, publisher publisher) CreateProductHandler {
+	return &createProductHandler{repo: repo, db: db, publisher: publisher}
 }
 
 func (h *createProductHandler) Handle(ctx context.Context, cmd CreateProductCommand) (CreateProductResponse, error) {

@@ -15,8 +15,7 @@ type eventHandler struct {
 	handler types.EventHandler
 }
 
-// NewEventHandler wraps an EventHandler function with a concrete event type T.
-// The generic T is used at compile time to bind the JSON decode target.
+// NewEventHandler wraps an EventHandler function.
 func NewEventHandler(handler types.EventHandler) eventHandler {
 	return eventHandler{handler: handler}
 }
