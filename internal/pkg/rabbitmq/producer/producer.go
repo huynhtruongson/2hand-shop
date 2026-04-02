@@ -35,7 +35,7 @@ func (r *rabbitMQProducer) PublishMessage(ctx context.Context, msg types.DomainE
 		return errors.New("connection is nil")
 	}
 
-	envelope := types.NewEnvelope(msg.EventType(), msg, msg.CorrelationID())
+	envelope := types.NewEventEnvelope(msg.EventType(), msg, msg.CorrelationID())
 
 	rabbitmqMsg, err := types.NewRabbitMQMessage(envelope, opts...)
 	if err != nil {

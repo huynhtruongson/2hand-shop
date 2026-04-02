@@ -2,8 +2,9 @@ package config
 
 // RabbitMQConfig holds the RabbitMQ connection parameters.
 type RabbitMQConfig struct {
-	HostName    string `mapstructure:"rabbitmq_host_name"`
-	VirtualHost string `mapstructure:"rabbitmq_virtual_host"`
-	UserName    string `mapstructure:"rabbitmq_user_name"`
+	Host        string `mapstructure:"rabbitmq_host"`
+	Port        int    `mapstructure:"rabbitmq_port"`
+	VirtualHost string `mapstructure:"rabbitmq_vhost"`
+	User        string `mapstructure:"rabbitmq_user"`
 	Password    string `mapstructure:"rabbitmq_password"`
 }

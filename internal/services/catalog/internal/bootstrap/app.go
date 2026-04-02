@@ -17,6 +17,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/config"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/command"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/eventhandler"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/query"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/postgres"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/rabbitmq"
@@ -25,10 +26,10 @@ import (
 
 // App holds all managed dependencies for the catalog service.
 type App struct {
-	cfg            config.Config
-	db             postgressqlx.DB
-	logger         logger.Logger
-	httpServer     *appHttp.HttpServer
+	cfg             config.Config
+	db              postgressqlx.DB
+	logger          logger.Logger
+	httpServer      *appHttp.HttpServer
 	rabbitmqManager mqmanager.Manager
 }
 
@@ -58,18 +59,10 @@ func NewApp() *App {
 		appLogger.Fatal("failed to connect postgres", "error", err)
 	}
 
-	// RabbitMQ is optional for local development; log and continue if unavailable.
-	var mqMgr mqmanager.Manager
-	mqMgr, err = rabbitmq.NewRabbitMQManager(cfg.RabbitMQ, appLogger)
-	if err != nil {
-		appLogger.Warn("failed to connect rabbitmq, running without message broker", "error", err)
-	}
-
 	// Infrastructure adapters (PostgreSQL repositories).
 	productRepo := postgres.NewProductRepo()
-	// categoryRepo := postgres.NewCategoryRepo() // TODO: wire when category handlers are added
 
-	// Application layer — command and query handlers.
+	// Application layer — command, query, and event handlers.
 	app := application.Application{
 		Commands: application.Commands{
 			CreateProduct: command.NewCreateProductHandler(productRepo, db),
@@ -79,17 +72,27 @@ func NewApp() *App {
 		Queries: application.Queries{
 			ListProduct: query.NewListProductHandler(productRepo, db),
 		},
+		EventHandlers: application.EventHandlers{
+			OnProductCreated: eventhandler.NewOnProductCreatedHandler(),
+		},
+	}
+
+	// RabbitMQ is optional for local development; log and continue if unavailable.
+	var mqMgr mqmanager.Manager
+	mqMgr, err = rabbitmq.NewRabbitMQManager(cfg.RabbitMQ, appLogger, app)
+	if err != nil {
+		appLogger.Fatal("failed to connect rabbitmq, running without message broker", "error", err)
 	}
 
 	// Transport layer.
-	catalogHandler := appHttp.NewCatalogHandler(app)
+	catalogHttpHandler := appHttp.NewCatalogHttpHandler(app)
 	httpServer := appHttp.NewHttpServer(cfg, appLogger, catalogHandler)
 
 	return &App{
-		cfg:            cfg,
-		db:             db,
-		logger:         appLogger,
-		httpServer:     httpServer,
+		cfg:             cfg,
+		db:              db,
+		logger:          appLogger,
+		httpServer:      httpServer,
 		rabbitmqManager: mqMgr,
 	}
 }

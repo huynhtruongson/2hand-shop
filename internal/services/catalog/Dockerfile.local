@@ -1,0 +1,24 @@
+FROM golang:1.25-alpine
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Install Air
+RUN go install github.com/air-verse/air@latest
+
+WORKDIR /workspace
+
+# Pre-download deps for internal/pkg (cached unless go.mod changes)
+COPY ./internal/pkg/go.mod ./internal/pkg/go.sum ./internal/pkg/
+RUN cd ./internal/pkg && go mod download
+
+# Pre-download deps for catalog service (cached unless go.mod changes)
+COPY ./internal/services/catalog/go.mod ./internal/services/catalog/go.sum ./internal/services/catalog/
+RUN cd ./internal/services/catalog && go mod download
+
+# Source is NOT copied here — it is bind-mounted at runtime by docker compose
+
+WORKDIR /workspace/internal/services/catalog
+
+EXPOSE 8082
+
+CMD ["air"]

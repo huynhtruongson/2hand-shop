@@ -8,8 +8,10 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
 	errpkg "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/aggregate"
 	caterrors "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/event"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/repository"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/valueobject"
 )
@@ -31,8 +33,11 @@ type CreateProductResponse struct {
 }
 
 type createProductHandler struct {
-	repo repository.ProductRepository
-	db   postgressqlx.DB
+	repo      repository.ProductRepository
+	db        postgressqlx.DB
+	publisher interface {
+		PublishMessage(ctx context.Context, message types.DomainEvent, opts ...types.MessageOption) error
+	}
 }
 
 func NewCreateProductHandler(repo repository.ProductRepository, db postgressqlx.DB) CreateProductHandler {
@@ -55,7 +60,11 @@ func (h *createProductHandler) Handle(ctx context.Context, cmd CreateProductComm
 	}
 
 	err = postgressqlx.ExecTx(ctx, h.db, func(ctx context.Context, tx postgressqlx.TX) error {
-		return h.repo.Save(ctx, tx, product)
+		if err := h.repo.Save(ctx, tx, product); err != nil {
+			return err
+		}
+		return h.publisher.PublishMessage(ctx, event.NewProductCreatedEvent(product.ID(), product.Title()))
+
 	})
 	if err != nil {
 		if _, ok := errpkg.As(err); ok {

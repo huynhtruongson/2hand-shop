@@ -11,23 +11,23 @@ import (
 
 const ContentTypeJSON = "application/json"
 
-type Envelope[T any] struct {
+type EventEnvelope struct {
+	ID            string    `json:"id"`
 	Type          string    `json:"type"`
 	Timestamp     time.Time `json:"timestamp"`
 	CorrelationID string    `json:"correlation_id,omitempty"`
-	Payload       T         `json:"payload"`
+	Payload       any       `json:"payload"`
 }
 
-// NewEnvelope builds a ready-to-publish Envelope for the given payload.
-func NewEnvelope[T any](msgType string, payload T, correlationID string) *Envelope[T] {
-	e := &Envelope[T]{
+// NewEnvelope builds a ready-to-publish EventEnvelope for the given payload.
+func NewEventEnvelope(msgType string, payload any, correlationID string) *EventEnvelope {
+	return &EventEnvelope{
+		ID:            uuid.New().String(),
 		Type:          msgType,
 		Timestamp:     time.Now().UTC(),
 		Payload:       payload,
 		CorrelationID: correlationID,
 	}
-
-	return e
 }
 
 // --------------------------------- publishing ---------------------------------
@@ -47,7 +47,7 @@ type RabbitMQMessage struct {
 
 // NewRabbitMQMessage serialises envelope into a RabbitMQMessage ready to hand
 // to the producer. T must be JSON-serialisable.
-func NewRabbitMQMessage[T any](envelope *Envelope[T], opts ...MessageOption) (*RabbitMQMessage, error) {
+func NewRabbitMQMessage(envelope *EventEnvelope, opts ...MessageOption) (*RabbitMQMessage, error) {
 	body, err := json.Marshal(envelope)
 	if err != nil {
 		return nil, fmt.Errorf("message: marshal envelope: %w", err)
@@ -107,14 +107,15 @@ func NewDeliveryMessage(d *amqp091.Delivery) *DeliveryMessage {
 	return &DeliveryMessage{raw: d}
 }
 
-// Decode unmarshals the delivery body into an Envelope[T].
-// Returns an error if the body is not a valid JSON-encoded Envelope[T].
-func Decode[T any](d *DeliveryMessage) (*Envelope[T], error) {
-	var env Envelope[T]
+// DecodeEnvelope decodes the RabbitMQ delivery body into an EventEnvelope[T]
+// and returns it alongside the AMQP-level Metadata (exchange, routing key, delivery tag).
+// Returns an error if the body is not valid JSON or cannot be assigned to EventEnvelope[T].
+func DecodeEnvelope(d *DeliveryMessage) (EventEnvelope, Metadata, error) {
+	var env EventEnvelope
 	if err := json.Unmarshal(d.raw.Body, &env); err != nil {
-		return nil, fmt.Errorf("message: decode envelope (type=%s): %w", d.raw.Type, err)
+		return EventEnvelope{}, Metadata{}, fmt.Errorf("message: decode envelope (type=%s): %w", d.raw.Type, err)
 	}
-	return &env, nil
+	return env, d.Metadata(), nil
 }
 
 // Metadata returns envelope-level fields without fully decoding the payload.

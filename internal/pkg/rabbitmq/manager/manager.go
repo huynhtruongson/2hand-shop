@@ -26,7 +26,7 @@ type rabbitMQManager struct {
 	logger             logger.Logger
 }
 
-func NewRabbitMQManager(consumerConn, produercerConn connection.IConnection, builderFn RabbitMQManagerConfigurationBuilderFunc) Manager {
+func NewRabbitMQManager(logger logger.Logger, consumerConn, produercerConn connection.IConnection, builderFn RabbitMQManagerConfigurationBuilderFunc) Manager {
 	builder := NewRabbitMQManagerConfigurationBuilder()
 	if builderFn != nil {
 		builderFn(builder)
@@ -34,6 +34,7 @@ func NewRabbitMQManager(consumerConn, produercerConn connection.IConnection, bui
 	config := builder.Build()
 
 	manager := &rabbitMQManager{
+		logger:             logger,
 		consumerConnection: consumerConn,
 		producerConnection: produercerConn,
 		config:             config,

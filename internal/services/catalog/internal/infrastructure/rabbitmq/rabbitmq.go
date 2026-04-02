@@ -3,21 +3,20 @@ package rabbitmq
 import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/consumer"
+	mqconsumer "github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/consumer"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/dispatcher"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/manager"
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/producer"
+	mqproducer "github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/producer"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/config"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application"
 )
 
-// NewRabbitMQManager creates and configures the RabbitMQ manager for the catalog service.
-// It establishes two connections (one for consumers, one for the producer) and wires
-// the producer with the catalog.events exchange. No consumers are registered here;
-// add them via manager.AddConsumer in a follow-up step.
-func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger) (manager.Manager, error) {
+func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger, app application.Application) (manager.Manager, error) {
 	connCfg := &connection.RabbitMQConnectionConfiguration{
-		HostName:    cfg.HostName,
+		Host:        cfg.Host,
+		Port:        cfg.Port,
 		VirtualHost: cfg.VirtualHost,
-		UserName:    cfg.UserName,
+		User:        cfg.User,
 		Password:    cfg.Password,
 	}
 
@@ -31,37 +30,40 @@ func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger) (manage
 		return nil, err
 	}
 
-	mgr := manager.NewRabbitMQManager(consumerConn, producerConn, func(b manager.RabbitMQManagerConfigurationBuilder) {
-		b.AddProducer(func(pb producer.RabbitMQProducerConfigurationBuilder) {
+	// Build the dispatcher using the event handlers injected from the application layer.
+	dispatcher := buildEventDispatcher(logger, app.EventHandlers)
+
+	mgr := manager.NewRabbitMQManager(logger, consumerConn, producerConn, func(b manager.RabbitMQManagerConfigurationBuilder) {
+		b.AddProducer(func(pb mqproducer.RabbitMQProducerConfigurationBuilder) {
 			pb.WithAppId("catalog").
-				WithExchangeOptions(&producer.ExchangeOptions{
+				WithExchangeOptions(&mqproducer.ExchangeOptions{
 					Durable:    true,
 					AutoDelete: false,
 				}).
-				WithExchanges(producer.Exchange{
+				WithExchanges(mqproducer.Exchange{
 					Name: "catalog.events",
-					Type: producer.ExchangeTopic,
+					Type: mqproducer.ExchangeTopic,
 				})
 		})
-		b.AddConsumer("catalog-service.catalog.products.events", func(cb consumer.RabbitMQConsumerConfigurationBuilder) {
-			cb.WithBindingOptions(&consumer.RabbitMQBindingOptions{
+		b.AddConsumer("catalog-service.catalog.products.events", func(cb mqconsumer.RabbitMQConsumerConfigurationBuilder) {
+			cb.WithBindingOptions(&mqconsumer.RabbitMQBindingOptions{
 				Exchange: "catalog.events",
 				Key:      "catalog.product.*",
 			})
-			// WithQueueOptions(&consumer.QueueOptions{
-			// 	Durable:    true,
-			// 	AutoDelete: false,
-			// }).
-			// WithQueues(consumer.Queue{
-			// 	Name: "catalog-service.catalog.products",
-			// }).
-			// WithExchangeBindings(consumer.ExchangeBinding{
-			// 	ExchangeName: "catalog.events",
-			// 	RoutingKeys:  []string{"catalog.product.created", "catalog.product.updated"},
-			// })
-
+			cb.WithHandler(dispatcher.Handle)
 		})
 	})
 
 	return mgr, nil
+}
+
+func buildEventDispatcher(log logger.Logger, handlers application.EventHandlers) *dispatcher.EventDispatcher {
+	b := dispatcher.NewBuilder(log)
+	dispatcher.Register(b, "catalog.product.created", handlers.OnProductCreated)
+
+	d, err := b.Build()
+	if err != nil {
+		panic("rabbitmq: failed to build event dispatcher: " + err.Error())
+	}
+	return d
 }

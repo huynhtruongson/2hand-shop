@@ -16,11 +16,11 @@ require (
 
 require (
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
+	github.com/golang-migrate/migrate/v4 v4.19.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/rabbitmq/amqp091-go v1.10.0 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect
-	github.com/satori/go.uuid v1.2.0 // indirect
 )
 
 require (

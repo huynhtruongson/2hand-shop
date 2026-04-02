@@ -35,8 +35,8 @@ var DefaultRetryOptions = []retry.Option{
 // across multiple consumer goroutines.
 type EventDispatcher struct {
 	mu        sync.RWMutex
-	registry  map[string]TypedHandler // exact routing key → handler
-	wildcards map[string]TypedHandler  // wildcard pattern → handler (checked after registry miss)
+	registry  map[string]Handler // exact routing key → handler
+	wildcards map[string]Handler // wildcard pattern → handler (checked after registry miss)
 	log       logger.Logger
 	retryOpts []retry.Option
 }
@@ -49,8 +49,8 @@ func NewEventDispatcher(log logger.Logger, retryOpts []retry.Option) *EventDispa
 		opts = DefaultRetryOptions
 	}
 	return &EventDispatcher{
-		registry:  make(map[string]TypedHandler),
-		wildcards: make(map[string]TypedHandler),
+		registry:  make(map[string]Handler),
+		wildcards: make(map[string]Handler),
 		log:       log,
 		retryOpts: opts,
 	}
@@ -106,7 +106,7 @@ func (d *EventDispatcher) Handle(ctx context.Context, msg *types.DeliveryMessage
 // lookupHandler performs a thread-safe lookup of the handler for routingKey.
 // It first checks for an exact match, then checks wildcard patterns.
 // The returned boolean indicates whether a handler was found.
-func (d *EventDispatcher) lookupHandler(routingKey string) (TypedHandler, bool) {
+func (d *EventDispatcher) lookupHandler(routingKey string) (Handler, bool) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -125,14 +125,14 @@ func (d *EventDispatcher) lookupHandler(routingKey string) (TypedHandler, bool) 
 
 // register adds a handler to the dispatcher's registry under the given routing key.
 // It is called exclusively during Build() while holding the write lock.
-func (d *EventDispatcher) register(routingKey string, handler TypedHandler) {
+func (d *EventDispatcher) register(routingKey string, handler Handler) {
 	d.registry[routingKey] = handler
 }
 
 // registerWildcard adds a handler to the wildcard registry.
 // Wildcard handlers are checked after exact-match lookups fail.
 // It is called exclusively during Build() while holding the write lock.
-func (d *EventDispatcher) registerWildcard(pattern string, handler TypedHandler) {
+func (d *EventDispatcher) registerWildcard(pattern string, handler Handler) {
 	d.wildcards[pattern] = handler
 }
 

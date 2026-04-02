@@ -7,6 +7,7 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 )
 
 // ErrEmptyRoutingKey is returned by Builder.Build when a handler is registered
@@ -23,8 +24,8 @@ var ErrNilHandler = errors.New("dispatcher: handler function must not be nil")
 // Builder is not safe for concurrent use; register all handlers before calling Build.
 type Builder struct {
 	log       logger.Logger
-	handlers  map[string]TypedHandler
-	wildcards map[string]TypedHandler
+	handlers  map[string]Handler
+	wildcards map[string]Handler
 	retryOpts []retry.Option
 }
 
@@ -32,8 +33,8 @@ type Builder struct {
 func NewBuilder(log logger.Logger) *Builder {
 	return &Builder{
 		log:       log,
-		handlers:  make(map[string]TypedHandler),
-		wildcards: make(map[string]TypedHandler),
+		handlers:  make(map[string]Handler),
+		wildcards: make(map[string]Handler),
 	}
 }
 
@@ -45,42 +46,43 @@ func (b *Builder) WithRetryOptions(opts ...retry.Option) *Builder {
 	return b
 }
 
-// Register registers handler fn as the handler for the exact routing key routingKey.
-// The handler function must accept a context and the fully-decoded domain event struct
-// as its two parameters. It is safe to register multiple handlers for different
-// routing keys on the same Builder.
+// Register registers fn as the handler for the exact routing key routingKey.
+// fn is an EventHandler — a plain function that accepts (ctx, EventContext).
+// The generic T binds the JSON decode target so TypedPayload[T]() is type-safe.
 //
 // Example:
 //
-//	dispatcher.Register(b, "catalog.product.created", func(ctx context.Context, ev ProductCreatedEvent) error {
-//	    return nil
-//	})
-func Register[T any](b *Builder, routingKey string, fn EventHandler[T]) *Builder {
+//	dispatcher.Register[ProductCreatedEvent](b, "catalog.product.created",
+//	    func(ctx context.Context, ec EventContext) error {
+//	        return nil
+//	    },
+//	)
+func Register(b *Builder, routingKey string, fn types.EventHandler) *Builder {
 	if err := validateKey(routingKey); err != nil {
 		panic(err)
 	}
 	if fn == nil {
 		panic(ErrNilHandler)
 	}
-	b.handlers[routingKey] = NewTypedHandler(fn)
+	b.handlers[routingKey] = NewEventHandler(fn)
 	return b
 }
 
-// RegisterWildcard registers handler fn as the handler for any routing key that
-// matches the wildcard pattern. The pattern uses a single asterisk (*) per segment
-// to match any non-empty string in that segment (e.g. "catalog.product.*" matches
+// RegisterWildcard registers fn as the handler for any routing key that matches
+// the wildcard pattern. The pattern uses a single asterisk (*) per segment to
+// match any non-empty string in that segment (e.g. "catalog.product.*" matches
 // both "catalog.product.created" and "catalog.product.deleted").
 //
 // Wildcard handlers are only consulted when no exact-match handler is found.
-// It is safe to register multiple wildcard patterns; the first matching pattern
-// (iteration order is unspecified) is used.
 //
 // Example:
 //
-//	dispatcher.RegisterWildcard(b, "catalog.product.*", func(ctx context.Context, ev any) error {
-//	    return nil
-//	})
-func RegisterWildcard[T any](b *Builder, pattern string, fn EventHandler[T]) *Builder {
+//	dispatcher.RegisterWildcard[any](b, "catalog.product.*",
+//	    func(ctx context.Context, ec EventContext) error {
+//	        return nil
+//	    },
+//	)
+func RegisterWildcard(b *Builder, pattern string, fn types.EventHandler) *Builder {
 	if err := validateKey(pattern); err != nil {
 		panic(err)
 	}
@@ -90,7 +92,7 @@ func RegisterWildcard[T any](b *Builder, pattern string, fn EventHandler[T]) *Bu
 	if !strings.Contains(pattern, "*") {
 		panic(fmt.Errorf("dispatcher: pattern %q contains no wildcard character '*'", pattern))
 	}
-	b.wildcards[pattern] = NewTypedHandler(fn)
+	b.wildcards[pattern] = NewEventHandler(fn)
 	return b
 }
 

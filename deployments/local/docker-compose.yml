@@ -31,23 +31,21 @@ services:
       timeout: 5s
       retries: 5
 
-  # rabbitmq:
-  #   image: rabbitmq:3-management-alpine
-  #   restart: no
-  #   environment:
-  #     RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-  #     RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
-  #     RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
-  #   ports:
-  #     - "5672:5672" # AMQP
-  #     - "15672:15672" # Management UI
-  #   volumes:
-  #     - rabbitmq_data:/var/lib/rabbitmq
-  #   healthcheck:
-  #     test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - ../../rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ../../rabbitmq_definitions.json:/etc/rabbitmq/definitions.json:ro
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ===========================================================================
   # Tyk Gateway (file-based, no Dashboard)
@@ -58,7 +56,7 @@ services:
 
   tyk-gateway:
     image: tykio/tyk-gateway:latest
-    restart: no
+    restart: unless-stopped
     depends_on:
       redis:
         condition: service_healthy
@@ -77,9 +75,11 @@ services:
     build:
       context: ../..
       dockerfile: internal/services/identity/Dockerfile.local
-    restart: no
+    restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     volumes:
       - ../../internal/services/identity/.env:/config/.env:ro
@@ -92,7 +92,31 @@ services:
       - /workspace/internal/services/identity/tmp
     ports:
       - "8081:8081"
+    
+  catalog-service:
+    image: catalog-service
+    build:
+      context: ../..
+      dockerfile: internal/services/catalog/Dockerfile.local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ../../internal/services/catalog/.env:/config/.env:ro
+      - ../../migrations/catalog:/migrations:ro
+        # Mount only catalog service
+      - ../../internal/services/catalog:/workspace/internal/services/catalog
+      # Mount shared pkg
+      - ../../internal/pkg:/workspace/internal/pkg
+      # Isolate the tmp dir so host and container don't share build artifacts
+      - /workspace/internal/services/catalog/tmp
+    ports:
+      - "8082:8082"
 
 volumes:
   postgres_data:
   redis_data:
+  rabbitmq_data:

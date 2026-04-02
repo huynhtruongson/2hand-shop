@@ -7,7 +7,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 )
 
-type ProductCreatedEvent struct {
+type ProductUpdatedEvent struct {
 	types.BaseEvent
 	ID           string    `json:"id"`
 	CategoryID   string    `json:"category_id"`
@@ -19,13 +19,11 @@ type ProductCreatedEvent struct {
 	Condition    string    `json:"condition"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
-	UpdateAt     time.Time `json:"updated_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
-func NewProductCreatedEvent(id string, title string) ProductCreatedEvent {
-	return ProductCreatedEvent{
-		BaseEvent: types.NewBaseEvent("catalog.product.created", "catalog.events", uuid.NewString()),
-		ID:        id,
-		Title:     title,
+func NewProductUpdatedEvent() ProductUpdatedEvent {
+	return ProductUpdatedEvent{
+		BaseEvent: types.NewBaseEvent("catalog.product.updated", "catalog.events", uuid.NewString()),
 	}
 }
