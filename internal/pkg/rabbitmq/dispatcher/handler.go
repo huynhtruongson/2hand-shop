@@ -9,7 +9,7 @@ import (
 
 // Handler is the non-generic interface stored in the dispatcher's registry.
 // Application-layer typed handlers satisfy this by implementing TypedHandler[T]
-// (renaming their Handle method to Handle).
+
 type Handler interface {
 	Handle(ctx context.Context, msg *types.DeliveryMessage) error
 }

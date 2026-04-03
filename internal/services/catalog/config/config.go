@@ -9,12 +9,13 @@ import (
 
 // Config aggregates all sub-configuration structs for the catalog service.
 type Config struct {
-	App      AppConfig      `mapstructure:",squash"`
-	Logger   LoggerConfig   `mapstructure:",squash"`
-	Cognito  CognitoConfig  `mapstructure:",squash"`
-	Postgres PostgresConfig `mapstructure:",squash"`
-	GinHttp  GinHttpConfig  `mapstructure:",squash"`
-	RabbitMQ RabbitMQConfig `mapstructure:",squash"`
+	App           AppConfig           `mapstructure:",squash"`
+	Logger        LoggerConfig        `mapstructure:",squash"`
+	Cognito       CognitoConfig       `mapstructure:",squash"`
+	Postgres      PostgresConfig      `mapstructure:",squash"`
+	GinHttp       GinHttpConfig       `mapstructure:",squash"`
+	RabbitMQ      RabbitMQConfig      `mapstructure:",squash"`
+	Elasticsearch ElasticsearchConfig `mapstructure:",squash"`
 }
 
 // CognitoConfig holds the AWS Cognito user pool settings used by the auth middleware.

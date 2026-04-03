@@ -20,6 +20,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/command"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/eventhandler"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/query"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/elasticsearch"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/postgres"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/rabbitmq"
 	appHttp "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/transports/http"
@@ -32,6 +33,7 @@ type App struct {
 	logger          logger.Logger
 	httpServer      *appHttp.HttpServer
 	rabbitmqManager mqmanager.Manager
+	esIndexer       *elasticsearch.ProductIndexer
 }
 
 // NewApp constructs the catalog service, wiring every dependency.
@@ -71,6 +73,9 @@ func NewApp() *App {
 		appLogger.Fatal("failed to connect rabbitmq, running without message broker", "error", err)
 	}
 
+	// Elasticsearch is optional for local development; log and continue if unavailable.
+	// esIndexer, _ := NewElasticsearchProducts(cfg.Elasticsearch, appLogger)
+
 	// Application layer — command, query, and event handlers.
 	app := application.Application{
 		Commands: application.Commands{
@@ -98,6 +103,7 @@ func NewApp() *App {
 		logger:          appLogger,
 		httpServer:      httpServer,
 		rabbitmqManager: mqMgr,
+		// esIndexer:       esIndexer,
 	}
 }
 

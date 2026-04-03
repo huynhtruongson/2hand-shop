@@ -46,6 +46,47 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.3.2
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      CLI_JAVA_OPTS: -Xms512m -Xmx512m
+      xpack.security.enabled: true
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-elastic}
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-u", "elastic:${ELASTIC_PASSWORD:-elastic}", "http://localhost:9200"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  # es-setup:
+  #   image: curlimages/curl:latest
+  #   restart: "no"
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   command: >
+  #     curl -X POST -u elastic:${ELASTIC_PASSWORD:-elastic}
+  #     -H "Content-Type: application/json"
+  #     http://elasticsearch:9200/_security/user/kibana_system/_password
+  #     -d "{\"password\": \"${KIBANA_PASSWORD:-kibana}\"}"
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:9.3.2
+  #   container_name: kibana
+  #   ports:
+  #     - "5601:5601"
+  #   environment:
+  #     ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+  #     ELASTICSEARCH_USERNAME: kibana_system
+  #     ELASTICSEARCH_PASSWORD: kibana
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
 
   # ===========================================================================
   # Tyk Gateway (file-based, no Dashboard)
@@ -104,6 +145,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     volumes:
       - ../../internal/services/catalog/.env:/config/.env:ro
       - ../../migrations/catalog:/migrations:ro
@@ -120,3 +163,4 @@ volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+  es_data:

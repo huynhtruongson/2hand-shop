@@ -77,7 +77,8 @@ func TestDeleteProductHandler_Handle(t *testing.T) {
 			t.Parallel()
 
 			db := &mockDB{}
-			h := NewDeleteProductHandler(tc.repo, db)
+			pub := &mockPublisher{}
+			h := NewDeleteProductHandler(tc.repo, db, pub)
 
 			_, err := h.Handle(context.Background(), tc.cmd)
 

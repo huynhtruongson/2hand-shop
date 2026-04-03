@@ -15,6 +15,7 @@ import (
 	caterrors "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/repository"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/valueobject"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -85,6 +86,15 @@ func (m *mockDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (postgressqlx
 	return m.tx, nil
 }
 func (m *mockDB) Close() error { return nil }
+
+// mockPublisher implements the publisher interface for testing.
+type mockPublisher struct {
+	publishErr error
+}
+
+func (m *mockPublisher) PublishMessage(ctx context.Context, message types.DomainEvent, opts ...types.MessageOption) error {
+	return m.publishErr
+}
 
 func (m *mockDB) GetContext(ctx context.Context, dest any, query string, args ...any) error {
 	return nil
@@ -260,7 +270,8 @@ func TestCreateProductHandler_Handle(t *testing.T) {
 
 			repo := &mockProductRepository{saveErr: tc.repoErr}
 			db := &mockDB{}
-			h := NewCreateProductHandler(repo, db)
+			pub := &mockPublisher{}
+			h := NewCreateProductHandler(repo, db, pub)
 
 			resp, err := h.Handle(context.Background(), tc.cmd)
 
