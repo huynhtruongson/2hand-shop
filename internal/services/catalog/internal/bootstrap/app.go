@@ -75,8 +75,8 @@ func NewApp() *App {
 	app := application.Application{
 		Commands: application.Commands{
 			CreateProduct: command.NewCreateProductHandler(productRepo, db, mqMgr.Producer()),
-			UpdateProduct: command.NewUpdateProductHandler(productRepo, db),
-			DeleteProduct: command.NewDeleteProductHandler(productRepo, db),
+			UpdateProduct: command.NewUpdateProductHandler(productRepo, db, mqMgr.Producer()),
+			DeleteProduct: command.NewDeleteProductHandler(productRepo, db, mqMgr.Producer()),
 		},
 		Queries: application.Queries{
 			ListProduct: query.NewListProductHandler(productRepo, db),

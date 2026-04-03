@@ -23,13 +23,14 @@ type DeleteProductCommand struct {
 type DeleteProductResponse struct{}
 
 type deleteProductHandler struct {
-	repo repository.ProductRepository
-	db   postgressqlx.DB
+	repo      repository.ProductRepository
+	db        postgressqlx.DB
+	publisher publisher
 }
 
 // NewDeleteProductHandler constructs a DeleteProductHandler.
-func NewDeleteProductHandler(repo repository.ProductRepository, db postgressqlx.DB) DeleteProductHandler {
-	return &deleteProductHandler{repo: repo, db: db}
+func NewDeleteProductHandler(repo repository.ProductRepository, db postgressqlx.DB, publisher publisher) DeleteProductHandler {
+	return &deleteProductHandler{repo: repo, db: db, publisher: publisher}
 }
 
 // Handle processes DeleteProductCommand.

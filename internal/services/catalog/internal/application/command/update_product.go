@@ -28,12 +28,13 @@ type UpdateProductCommand struct {
 type UpdateProductResponse struct{}
 
 type updateProductHandler struct {
-	repo repository.ProductRepository
-	db   postgressqlx.DB
+	repo      repository.ProductRepository
+	db        postgressqlx.DB
+	publisher publisher
 }
 
-func NewUpdateProductHandler(repo repository.ProductRepository, db postgressqlx.DB) UpdateProductHandler {
-	return &updateProductHandler{repo: repo, db: db}
+func NewUpdateProductHandler(repo repository.ProductRepository, db postgressqlx.DB, publisher publisher) UpdateProductHandler {
+	return &updateProductHandler{repo: repo, db: db, publisher: publisher}
 }
 
 func (h *updateProductHandler) Handle(ctx context.Context, cmd UpdateProductCommand) (UpdateProductResponse, error) {

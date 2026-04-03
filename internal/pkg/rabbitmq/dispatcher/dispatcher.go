@@ -43,8 +43,8 @@ var DefaultRetryOptions = []retry.Option{
 // across multiple consumer goroutines.
 type EventDispatcher struct {
 	mu        sync.RWMutex
-	registry  map[string]Handler // exact routing key → handler
-	wildcards map[string]Handler // wildcard pattern → handler (checked after registry miss)
+	registry  map[string]Handler
+	wildcards map[string]Handler
 	log       logger.Logger
 	retryOpts []retry.Option
 }
@@ -72,36 +72,38 @@ func (d *EventDispatcher) WithRetryOptions(opts ...retry.Option) *EventDispatche
 	return d
 }
 
-// Register registers fn as the handler for the exact routing key routingKey.
+// Register registers h as the handler for the exact routing key routingKey.
+// h is typically a concrete typed handler (e.g. *OnProductCreatedHandler) that
+// decodes the raw payload into the domain event type inside its Handle method.
 // The returned dispatcher allows chaining.
-func (d *EventDispatcher) Register(routingKey string, fn types.EventHandler) *EventDispatcher {
+func (d *EventDispatcher) Register(routingKey string, h Handler) *EventDispatcher {
 	if err := validateKey(routingKey); err != nil {
 		panic(err)
 	}
-	if fn == nil {
+	if h == nil {
 		panic(ErrNilHandler)
 	}
-	d.register(routingKey, NewEventHandler(fn))
+	d.register(routingKey, h)
 	return d
 }
 
-// RegisterWildcard registers fn as the handler for any routing key that matches
+// RegisterWildcard registers h as the handler for any routing key that matches
 // the wildcard pattern. The pattern uses a single asterisk (*) per segment to
 // match any non-empty string in that segment (e.g. "catalog.product.*" matches
 // both "catalog.product.created" and "catalog.product.deleted").
 //
 // Wildcard handlers are only consulted when no exact-match handler is found.
-func (d *EventDispatcher) RegisterWildcard(pattern string, fn types.EventHandler) *EventDispatcher {
+func (d *EventDispatcher) RegisterWildcard(pattern string, h Handler) *EventDispatcher {
 	if err := validateKey(pattern); err != nil {
 		panic(err)
 	}
-	if fn == nil {
+	if h == nil {
 		panic(ErrNilHandler)
 	}
 	if !strings.Contains(pattern, "*") {
 		panic(fmt.Errorf("dispatcher: pattern %q contains no wildcard character '*'", pattern))
 	}
-	d.registerWildcard(pattern, NewEventHandler(fn))
+	d.registerWildcard(pattern, h)
 	return d
 }
 
@@ -129,9 +131,6 @@ func validateKey(key string) error {
 // If a handler is found but fails, the retry policy is applied before returning the error.
 func (d *EventDispatcher) Handle(ctx context.Context, msg *types.DeliveryMessage) error {
 	meta := msg.Metadata()
-	// Use RoutingKey (AMQP-level) so routing works even when the JSON body is
-	// malformed and meta.Type cannot be unmarshalled. meta.Type (envelope type)
-	// is still logged for visibility.
 	routingKey := meta.RoutingKey
 
 	handler, ok := d.lookupHandler(routingKey)
@@ -166,7 +165,6 @@ func (d *EventDispatcher) Handle(ctx context.Context, msg *types.DeliveryMessage
 
 // lookupHandler performs a thread-safe lookup of the handler for routingKey.
 // It first checks for an exact match, then checks wildcard patterns.
-// The returned boolean indicates whether a handler was found.
 func (d *EventDispatcher) lookupHandler(routingKey string) (Handler, bool) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -184,23 +182,15 @@ func (d *EventDispatcher) lookupHandler(routingKey string) (Handler, bool) {
 	return nil, false
 }
 
-// register adds a handler to the dispatcher's registry under the given routing key.
-// It is called exclusively during Build() while holding the write lock.
-func (d *EventDispatcher) register(routingKey string, handler Handler) {
-	d.registry[routingKey] = handler
+func (d *EventDispatcher) register(routingKey string, h Handler) {
+	d.registry[routingKey] = h
 }
 
-// registerWildcard adds a handler to the wildcard registry.
-// Wildcard handlers are checked after exact-match lookups fail.
-// It is called exclusively during Build() while holding the write lock.
-func (d *EventDispatcher) registerWildcard(pattern string, handler Handler) {
-	d.wildcards[pattern] = handler
+func (d *EventDispatcher) registerWildcard(pattern string, h Handler) {
+	d.wildcards[pattern] = h
 }
 
 // patternMatch returns true if routingKey matches the given pattern.
-// A single asterisk (*) in a pattern segment matches any non-empty string
-// in the corresponding routing key segment. Patterns must contain the same
-// number of dot-separated segments as the routing key.
 //
 // Examples:
 //

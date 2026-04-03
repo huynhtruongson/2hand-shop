@@ -4,6 +4,6 @@ import (
 	"context"
 )
 
-type EventHandler interface {
-	Handle(ctx context.Context, ec EventContext) error
+type EventHandler[T any] interface {
+	Handle(ctx context.Context, ec EventContext[T]) error
 }

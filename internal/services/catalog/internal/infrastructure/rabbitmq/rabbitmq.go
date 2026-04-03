@@ -11,7 +11,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application"
 )
 
-func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger, dispatcher *dispatcher.EventDispatcher) (manager.Manager, error) {
+func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger, d *dispatcher.EventDispatcher) (manager.Manager, error) {
 	connCfg := &connection.RabbitMQConnectionConfiguration{
 		Host:        cfg.Host,
 		Port:        cfg.Port,
@@ -47,13 +47,13 @@ func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger, dispatc
 				Exchange: "catalog.events",
 				Key:      "catalog.product.*",
 			})
-			cb.WithHandler(dispatcher.Handle)
+			cb.WithHandler(d.Handle)
 		})
 	})
 
 	return mgr, nil
 }
 
-func BuildEventDispatcher(dispatcher *dispatcher.EventDispatcher, handlers application.EventHandlers) {
-	dispatcher.Register("catalog.product.created", handlers.OnProductCreated)
+func BuildEventDispatcher(d *dispatcher.EventDispatcher, handlers application.EventHandlers) {
+	d.Register("catalog.product.created", dispatcher.NewTypedHandler(handlers.OnProductCreated))
 }
