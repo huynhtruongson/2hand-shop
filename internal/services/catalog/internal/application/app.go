@@ -20,6 +20,7 @@ type Commands struct {
 
 type Queries struct {
 	ListProduct query.ListProductHandler
+	GetProduct  query.GetProductHandler
 }
 
 // EventHandlers holds all event-driven (RabbitMQ consumer) handlers.

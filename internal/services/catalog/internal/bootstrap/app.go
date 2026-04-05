@@ -87,6 +87,7 @@ func NewApp() *App {
 		},
 		Queries: application.Queries{
 			ListProduct: query.NewListProductHandler(productRepo, db),
+			GetProduct:  query.NewGetProductHandler(productRepo, db),
 		},
 		EventHandlers: application.EventHandlers{
 			OnProductCreated: eventhandler.NewOnProductCreatedHandler(appLogger, esIndexer),

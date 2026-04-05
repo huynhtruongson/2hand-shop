@@ -55,6 +55,22 @@ func (h *CatalogHandler) ListProductHandler(ctx *gin.Context) {
 	utils.ResponseWithPagination(ctx, dto.ToProductsDTO(result.Products), &result.Pagination)
 }
 
+func (h *CatalogHandler) GetProductHandler(ctx *gin.Context) {
+	var req dto.GetProductRequest
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	product, err := h.app.Queries.GetProduct.Handle(ctx, req.ToGetProductQuery())
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, dto.ToProductDTO(*product))
+}
+
 func (h *CatalogHandler) UpdateProductHandler(ctx *gin.Context) {
 	var reqID dto.ProductRequestID
 	if err := ctx.ShouldBindUri(&reqID); err != nil {

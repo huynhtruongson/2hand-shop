@@ -77,6 +77,7 @@ func (s *HttpServer) Addr() string {
 func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *CatalogHandler) {
 	// public route
 	r.GET("/products", catalogHandler.ListProductHandler)
+	r.GET("/products/:product_id", catalogHandler.GetProductHandler)
 
 	adminRoute := r.Group("", auth.CognitoAuth(auth.CognitoConfig{
 		Region:     sv.cfg.Cognito.Region,
