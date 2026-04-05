@@ -27,11 +27,12 @@ type rabbitMQConsumer struct {
 
 var _ Consumer = (*rabbitMQConsumer)(nil)
 
-func NewRabbitMQConsumer(conn connection.IConnection, config *RabbitMQConsumerConfiguration) Consumer {
+func NewRabbitMQConsumer(logger logger.Logger, conn connection.IConnection, config *RabbitMQConsumerConfiguration) Consumer {
 	return &rabbitMQConsumer{
 		config:     config,
 		connection: conn,
 		handler:    config.Handler,
+		logger:     logger,
 	}
 }
 

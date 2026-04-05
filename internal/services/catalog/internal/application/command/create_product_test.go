@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
 	errpkg "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
-	errorspkg "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/aggregate"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/entity"
 	caterrors "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/repository"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/valueobject"
@@ -49,6 +50,29 @@ func (m *mockProductRepository) GetByID(ctx context.Context, q postgressqlx.Quer
 func (m *mockProductRepository) List(ctx context.Context, q postgressqlx.Querier, filter repository.ListProductsFilter, page postgressqlx.Page) ([]aggregate.Product, int, error) {
 	return nil, 0, nil
 }
+
+// mockCategoryRepository provides a GetByID stub so the handler can publish events.
+type mockCategoryRepository struct {
+	getByIDErr error
+	getByIDRes *entity.Category
+}
+
+func newMockCategoryRepository() *mockCategoryRepository {
+	return &mockCategoryRepository{
+		getByIDRes: entity.UnmarshalCategoryFromDB("cat-123", "Electronics", "", "electronics", "", 0, time.Now().UTC(), time.Now().UTC(), nil),
+	}
+}
+
+func (m *mockCategoryRepository) GetByID(ctx context.Context, q postgressqlx.Querier, categoryID string) (*entity.Category, error) {
+	return m.getByIDRes, m.getByIDErr
+}
+func (m *mockCategoryRepository) Save(ctx context.Context, q postgressqlx.Querier, cat *entity.Category) error { return nil }
+func (m *mockCategoryRepository) Update(ctx context.Context, q postgressqlx.Querier, cat *entity.Category) error { return nil }
+func (m *mockCategoryRepository) Delete(ctx context.Context, q postgressqlx.Querier, categoryID string) error         { return nil }
+func (m *mockCategoryRepository) GetBySlug(ctx context.Context, q postgressqlx.Querier, slug string) (*entity.Category, error) {
+	return nil, nil
+}
+func (m *mockCategoryRepository) ListAll(ctx context.Context, q postgressqlx.Querier) ([]*entity.Category, error) { return nil, nil }
 
 // mockTX records Commit/Rollback calls so assertions can verify transaction lifecycle.
 type mockTX struct {
@@ -269,9 +293,10 @@ func TestCreateProductHandler_Handle(t *testing.T) {
 			t.Parallel()
 
 			repo := &mockProductRepository{saveErr: tc.repoErr}
+			cateRepo := newMockCategoryRepository()
 			db := &mockDB{}
 			pub := &mockPublisher{}
-			h := NewCreateProductHandler(repo, db, pub)
+			h := NewCreateProductHandler(repo, cateRepo, db, pub)
 
 			resp, err := h.Handle(context.Background(), tc.cmd)
 
@@ -279,7 +304,7 @@ func TestCreateProductHandler_Handle(t *testing.T) {
 				if err == nil {
 					t.Fatalf("expected error %v, got nil", tc.wantErr)
 				}
-				if !errpkg.IsCode(err, tc.wantErr.(*errorspkg.AppError).Code()) {
+				if !errpkg.IsCode(err, tc.wantErr.(*errpkg.AppError).Code()) {
 					t.Errorf("error code = %v, want %v", err, tc.wantErr)
 				}
 				if tc.wantResp.ProductID != "" && resp.ProductID != "" {

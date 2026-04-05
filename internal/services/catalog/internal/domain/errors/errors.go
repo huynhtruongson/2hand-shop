@@ -2,6 +2,12 @@ package errors
 
 import "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 
+// ── Auth  ──────────────────────────────────────────────────
+
+var (
+	ErrUnauthorized = errors.NewAppError(errors.KindUnauthorized, "AUTH_UNAUTHORIZED", "authentication required")
+)
+
 // ── Generic / cross-cutting ──────────────────────────────────────────────────
 
 var (

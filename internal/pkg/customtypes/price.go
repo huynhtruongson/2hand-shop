@@ -191,24 +191,34 @@ func (p *Price) Scan(src any) error {
 		return nil
 	}
 
-	b, ok := src.([]byte)
-	if !ok {
-		return fmt.Errorf("Price.Scan: expected []byte, got %T", src)
+	switch v := src.(type) {
+	case float64:
+		p.Decimal = decimal.NewFromFloat(v)
+	case int64:
+		p.Decimal = decimal.NewFromInt(v)
+	case []byte:
+		dec, err := decimal.NewFromString(string(v))
+		if err != nil {
+			return err
+		}
+		p.Decimal = dec
+	case string:
+		dec, err := decimal.NewFromString(v)
+		if err != nil {
+			return err
+		}
+		p.Decimal = dec
+	default:
+		return fmt.Errorf("cannot scan type %T into Price", src)
 	}
 
-	d, err := decimal.NewFromString(string(b))
-	if err != nil {
-		return fmt.Errorf("Price.Scan: %w", err)
-	}
-
-	*p = Price{Decimal: d}
 	return nil
 }
 
 // compile-time interface assertions
 var (
-	_ driver.Valuer        = Price{}
+	_ driver.Valuer                = Price{}
 	_ interface{ Scan(any) error } = (*Price)(nil)
-	_ json.Marshaler       = Price{}
-	_ json.Unmarshaler     = (*Price)(nil)
+	_ json.Marshaler               = Price{}
+	_ json.Unmarshaler             = (*Price)(nil)
 )

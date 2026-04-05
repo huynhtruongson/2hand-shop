@@ -14,11 +14,13 @@ import (
 type ListProductHandler cqrs.QueryHandler[ListProductQuery, ListProductResponse]
 
 type ListProductQuery struct {
-	User     auth.User
-	Page     int
-	Limit    int
-	Category *string
-	Statuses []string
+	User       *auth.User
+	Page       int
+	Limit      int
+	Category   *string
+	Conditions []string
+	Statuses   []string
+	Sort       *string
 }
 
 type ListProductResponse struct {
@@ -47,41 +49,29 @@ func NewListProductHandler(repo repository.ProductRepository, db postgressqlx.DB
 // Handle processes ListProductQuery and returns a paginated product listing.
 // Only published products are returned. Category filter is optional.
 func (h *listProductHandler) Handle(ctx context.Context, q ListProductQuery) (ListProductResponse, error) {
-	limit := q.Limit
-	if limit <= 0 {
-		limit = defaultLimit
-	}
-	if limit > maxLimit {
-		limit = maxLimit
-	}
-
-	page := q.Page
-	if page <= 0 {
-		page = 1
-	}
-
-	offset := (page - 1) * limit
+	offset := (q.Page - 1) * q.Limit
 
 	filter := repository.ListProductsFilter{
-		Category: q.Category,
-		Statuses: q.Statuses,
+		Category:   q.Category,
+		Statuses:   q.Statuses,
+		Conditions: q.Conditions,
+		Sort:       q.Sort,
 	}
-	if !q.User.IsAdmin() {
+	if q.User != nil && !q.User.IsAdmin() {
 		filter.Statuses = []string{"published"}
 	}
-
-	products, total, err := h.repo.List(ctx, h.db, filter, postgressqlx.NewPage(limit, offset, maxLimit))
+	products, total, err := h.repo.List(ctx, h.db, filter, postgressqlx.NewPage(q.Limit, offset, maxLimit))
 	if err != nil {
 		return ListProductResponse{}, err
 	}
 
-	totalPages := (total + limit - 1) / limit
+	totalPages := (total + q.Limit - 1) / q.Limit
 
 	return ListProductResponse{
 		Products: products,
 		Pagination: types.Pagination{
-			Page:       page,
-			Limit:      limit,
+			Page:       q.Page,
+			Limit:      q.Limit,
 			TotalPages: totalPages,
 			TotalItems: total,
 		},

@@ -98,10 +98,10 @@ func (m *Migrator) Run(ctx context.Context) error {
 		}
 		m.lg.Info("applying migration", "version", mig.Version, "description", mig.Description)
 		if err := mig.Up(ctx, m.es); err != nil {
-			return fmt.Errorf("migration %s up failed: %w", mig.Version, err)
+			return fmt.Errorf("migration %s up failed: %w", mig.Version(), err)
 		}
 		if err := m.appliedStore.Record(ctx, mig); err != nil {
-			return fmt.Errorf("record migration %s: %w", mig.Version, err)
+			return fmt.Errorf("record migration %s: %w", mig.Version(), err)
 		}
 		m.lg.Info("migration applied", "version", mig.Version)
 	}
@@ -137,12 +137,12 @@ func (m *Migrator) Down(ctx context.Context, steps int) error {
 		if rolledBack >= steps {
 			break
 		}
-		m.lg.Info("rolling back migration", "version", mig.Version, "description", mig.Description)
+		m.lg.Info("rolling back migration", "version", mig.Version(), "description", mig.Description())
 		if err := mig.Down(ctx, m.es); err != nil {
-			return fmt.Errorf("migration %s down failed: %w", mig.Version, err)
+			return fmt.Errorf("migration %s down failed: %w", mig.Version(), err)
 		}
 		if err := m.appliedStore.Remove(ctx, mig.Version()); err != nil {
-			return fmt.Errorf("remove migration record %s: %w", mig.Version, err)
+			return fmt.Errorf("remove migration record %s: %w", mig.Version(), err)
 		}
 		rolledBack++
 	}
@@ -192,10 +192,10 @@ func (m *Migrator) Target(ctx context.Context, targetVersion string) error {
 			if mig.Version() > current && mig.Version() <= targetVersion {
 				m.lg.Info("applying migration", "version", mig.Version(), "description", mig.Description())
 				if err := mig.Up(ctx, m.es); err != nil {
-					return fmt.Errorf("migration %s up failed: %w", mig.Version, err)
+					return fmt.Errorf("migration %s up failed: %w", mig.Version(), err)
 				}
 				if err := m.appliedStore.Record(ctx, mig); err != nil {
-					return fmt.Errorf("record migration %s: %w", mig.Version, err)
+					return fmt.Errorf("record migration %s: %w", mig.Version(), err)
 				}
 			}
 		}
@@ -210,10 +210,10 @@ func (m *Migrator) Target(ctx context.Context, targetVersion string) error {
 			if mig.Version() <= current && mig.Version() > targetVersion {
 				m.lg.Info("rolling back migration", "version", mig.Version(), "description", mig.Description())
 				if err := mig.Down(ctx, m.es); err != nil {
-					return fmt.Errorf("migration %s down failed: %w", mig.Version, err)
+					return fmt.Errorf("migration %s down failed: %w", mig.Version(), err)
 				}
 				if err := m.appliedStore.Remove(ctx, mig.Version()); err != nil {
-					return fmt.Errorf("remove migration record %s: %w", mig.Version, err)
+					return fmt.Errorf("remove migration record %s: %w", mig.Version(), err)
 				}
 			}
 		}

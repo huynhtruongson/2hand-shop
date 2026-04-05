@@ -19,6 +19,8 @@ var ErrEmptyRoutingKey = errors.New("dispatcher: routing key must not be empty")
 // ErrNilHandler is returned by Register/RegisterWildcard when a nil handler is passed.
 var ErrNilHandler = errors.New("dispatcher: handler function must not be nil")
 
+var ErrNotFoundHandler = errors.New("dispatcher: no handler registered for routing key")
+
 const (
 	// defaultRetryAttempts is the number of times a handler invocation is retried.
 	defaultRetryAttempts = 3
@@ -140,7 +142,7 @@ func (d *EventDispatcher) Handle(ctx context.Context, msg *types.DeliveryMessage
 			"exchange", meta.Exchange,
 			"delivery_tag", meta.DeliveryTag,
 		)
-		return nil
+		return fmt.Errorf("%w,routing_key: %s", ErrNotFoundHandler, routingKey)
 	}
 
 	var lastErr error

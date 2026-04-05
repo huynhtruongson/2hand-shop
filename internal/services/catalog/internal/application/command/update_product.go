@@ -9,6 +9,7 @@ import (
 	errpkg "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
 	caterrors "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/event"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/repository"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/valueobject"
 )
@@ -28,18 +29,19 @@ type UpdateProductCommand struct {
 type UpdateProductResponse struct{}
 
 type updateProductHandler struct {
-	repo      repository.ProductRepository
-	db        postgressqlx.DB
-	publisher publisher
+	productRepo repository.ProductRepository
+	cateRepo    repository.CategoryRepository
+	db          postgressqlx.DB
+	publisher   publisher
 }
 
-func NewUpdateProductHandler(repo repository.ProductRepository, db postgressqlx.DB, publisher publisher) UpdateProductHandler {
-	return &updateProductHandler{repo: repo, db: db, publisher: publisher}
+func NewUpdateProductHandler(productRepo repository.ProductRepository, cateRepo repository.CategoryRepository, db postgressqlx.DB, publisher publisher) UpdateProductHandler {
+	return &updateProductHandler{productRepo: productRepo, cateRepo: cateRepo, db: db, publisher: publisher}
 }
 
 func (h *updateProductHandler) Handle(ctx context.Context, cmd UpdateProductCommand) (UpdateProductResponse, error) {
 	err := postgressqlx.ExecTx(ctx, h.db, func(ctx context.Context, tx postgressqlx.TX) error {
-		product, err := h.repo.GetByID(ctx, tx, cmd.ProductID)
+		product, err := h.productRepo.GetByID(ctx, tx, cmd.ProductID)
 		if err != nil {
 			return err
 		}
@@ -77,11 +79,17 @@ func (h *updateProductHandler) Handle(ctx context.Context, cmd UpdateProductComm
 			return err
 		}
 
-		if err := h.repo.Update(ctx, tx, product); err != nil {
+		if err := h.productRepo.Update(ctx, tx, product); err != nil {
 			return err
 		}
 
-		return nil
+		cate, err := h.cateRepo.GetByID(ctx, tx, product.CategoryID())
+		if err != nil {
+			return err
+		}
+
+		return h.publisher.PublishMessage(ctx, event.NewProductUpdatedEvent(product, cate.Name()))
+
 	})
 	if err != nil {
 		if _, ok := errpkg.As(err); ok {

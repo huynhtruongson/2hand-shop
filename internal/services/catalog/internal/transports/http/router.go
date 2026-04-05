@@ -4,9 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 
+	"github.com/LukaGiorgadze/gonull/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/auth"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/middleware"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/config"
@@ -20,6 +25,22 @@ type HttpServer struct {
 
 func NewHttpServer(cfg config.Config, logger logger.Logger, catalogHandler *CatalogHandler) *HttpServer {
 	router := gin.Default()
+
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterCustomTypeFunc(nullableTypeFunc,
+			gonull.Nullable[string]{},
+			gonull.Nullable[int]{},
+			gonull.Nullable[int32]{},
+			gonull.Nullable[int64]{},
+			gonull.Nullable[float32]{},
+			gonull.Nullable[float64]{},
+			gonull.Nullable[bool]{},
+			gonull.Nullable[customtypes.Price]{},
+			gonull.Nullable[customtypes.Attachment]{},
+			gonull.Nullable[customtypes.Attachments]{},
+		)
+	}
+
 	router.Use(gin.Recovery(), middleware.GinRequestID(), middleware.GinLogger(middleware.LogConfig{
 		Logger:          logger,
 		LogRequestBody:  true,
@@ -54,12 +75,34 @@ func (s *HttpServer) Addr() string {
 }
 
 func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *CatalogHandler) {
-	r.Use(auth.CognitoAuth(auth.CognitoConfig{
+	// public route
+	r.GET("/products", catalogHandler.ListProductHandler)
+
+	adminRoute := r.Group("", auth.CognitoAuth(auth.CognitoConfig{
 		Region:     sv.cfg.Cognito.Region,
 		UserPoolID: sv.cfg.Cognito.UserPoolID,
 		ClientID:   sv.cfg.Cognito.ClientID,
 		TokenUse:   "access",
 	}), auth.RequireRole("admin"))
 
-	r.POST("/products", catalogHandler.CreateProductHandler)
+	adminRoute.POST("/products", catalogHandler.CreateProductHandler)
+	adminRoute.PUT("/products/:product_id", catalogHandler.UpdateProductHandler)
+	adminRoute.DELETE("/products/:product_id", catalogHandler.DeleteProductHandler)
+}
+func nullableTypeFunc(field reflect.Value) interface{} {
+	presentField := field.FieldByName("Present")
+	validField := field.FieldByName("Valid")
+
+	// Field was not in the JSON body at all → skip validation
+	if !presentField.IsValid() || !presentField.Bool() {
+		return nil
+	}
+
+	// Field was explicitly null → skip value validation (omitempty)
+	if !validField.IsValid() || !validField.Bool() {
+		return nil
+	}
+
+	// Field has a real value → let validator inspect it
+	return field.FieldByName("Val").Interface()
 }

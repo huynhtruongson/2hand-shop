@@ -19,3 +19,7 @@ tasks:
   migrate-down:
     desc: Run database migrations DOWN, e.g. task migrate-down SERVICE=identity-service
     cmd: docker compose -f {{.COMPOSE_FILE}} run --rm {{.SERVICE}} go run ./cmd/migration down
+
+  es-migrate-up:
+    desc: Run Elasticsearch migrations UP, e.g. task es-migrate-up SERVICE=catalog-service
+    cmd: docker compose -f {{.COMPOSE_FILE}} run --rm {{.SERVICE}} go run ./cmd/esmigration up

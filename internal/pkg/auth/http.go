@@ -219,8 +219,8 @@ func buildMiddleware(cfg CognitoConfig, kc *keyCache, required bool) gin.Handler
 			return
 		}
 
-		c.Set(string(claimsCtxKey), claims)
-		c.Set(string(userCtxKey), User{
+		c.Set(claimsCtxKey, claims)
+		c.Set(userCtxKey, User{
 			id:   claims.CustomID,
 			role: claims.CustomRole,
 		})
@@ -337,7 +337,7 @@ func parseAndValidate(tokenStr string, cfg CognitoConfig, kc *keyCache) (*Cognit
 
 // GetClaims retrieves CognitoClaims stored by the middleware.
 func ClaimsFromCtx(c *gin.Context) (*CognitoClaims, bool) {
-	v, ok := c.Get(string(claimsCtxKey))
+	v, ok := c.Get(claimsCtxKey)
 	if !ok {
 		return nil, false
 	}
@@ -347,7 +347,7 @@ func ClaimsFromCtx(c *gin.Context) (*CognitoClaims, bool) {
 
 // GetUser returns the User from context.
 func UserFromCtx(c *gin.Context) (User, bool) {
-	v, ok := c.Get(string(userCtxKey))
+	v, ok := c.Get(userCtxKey)
 	if !ok {
 		return User{}, false
 	}

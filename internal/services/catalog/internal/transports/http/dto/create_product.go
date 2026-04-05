@@ -6,13 +6,13 @@ import (
 )
 
 type CreateProductRequest struct {
-	CategoryID  string                  `json:"category_id" validate:"required"`
-	Title       string                  `json:"title" validate:"required,max=200"`
-	Description string                  `json:"description" validate:"required,max=500"`
+	CategoryID  string                  `json:"category_id" binding:"required"`
+	Title       string                  `json:"title" binding:"required,max=200"`
+	Description string                  `json:"description" binding:"required,max=500"`
 	Brand       *string                 `json:"brand,omitempty"`
-	Price       customtypes.Price       `json:"price" validate:"required,gt=0"`
-	Condition   string                  `json:"condition" validate:"required,oneof=new like_new good fair poor"`
-	Images      customtypes.Attachments `json:"images" validate:"required,min=1,dive"`
+	Price       customtypes.Price       `json:"price" binding:"required"`
+	Condition   string                  `json:"condition" binding:"required,oneof=new like_new good fair poor"`
+	Images      customtypes.Attachments `json:"images" binding:"required,min=1,dive"`
 }
 
 func (req CreateProductRequest) ToCreateProductCommand() command.CreateProductCommand {

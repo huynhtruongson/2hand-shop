@@ -25,6 +25,6 @@ type Queries struct {
 // EventHandlers holds all event-driven (RabbitMQ consumer) handlers.
 type EventHandlers struct {
 	OnProductCreated eventhandler.OnProductCreatedHandler
-	// OnProductUpdated *eventhandler.OnProductUpdatedHandler
-	// OnProductDeleted *eventhandler.OnProductDeletedHandler
+	OnProductUpdated eventhandler.OnProductUpdatedHandler
+	OnProductDeleted eventhandler.OnProductDeletedHandler
 }

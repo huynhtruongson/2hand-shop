@@ -37,13 +37,14 @@ type publisher interface {
 }
 
 type createProductHandler struct {
-	repo      repository.ProductRepository
-	db        postgressqlx.DB
-	publisher publisher
+	productRepo repository.ProductRepository
+	cateRepo    repository.CategoryRepository
+	db          postgressqlx.DB
+	publisher   publisher
 }
 
-func NewCreateProductHandler(repo repository.ProductRepository, db postgressqlx.DB, publisher publisher) CreateProductHandler {
-	return &createProductHandler{repo: repo, db: db, publisher: publisher}
+func NewCreateProductHandler(productRepo repository.ProductRepository, cateRepo repository.CategoryRepository, db postgressqlx.DB, publisher publisher) CreateProductHandler {
+	return &createProductHandler{productRepo: productRepo, cateRepo: cateRepo, db: db, publisher: publisher}
 }
 
 func (h *createProductHandler) Handle(ctx context.Context, cmd CreateProductCommand) (CreateProductResponse, error) {
@@ -62,10 +63,16 @@ func (h *createProductHandler) Handle(ctx context.Context, cmd CreateProductComm
 	}
 
 	err = postgressqlx.ExecTx(ctx, h.db, func(ctx context.Context, tx postgressqlx.TX) error {
-		if err := h.repo.Save(ctx, tx, product); err != nil {
+		if err := h.productRepo.Save(ctx, tx, product); err != nil {
 			return err
 		}
-		return h.publisher.PublishMessage(ctx, event.NewProductCreatedEvent(product.ID(), product.Title()))
+
+		cate, err := h.cateRepo.GetByID(ctx, tx, product.CategoryID())
+		if err != nil {
+			return err
+		}
+
+		return h.publisher.PublishMessage(ctx, event.NewProductCreatedEvent(product, cate.Name()))
 
 	})
 	if err != nil {

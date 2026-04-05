@@ -21,6 +21,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/eventhandler"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/query"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/elasticsearch"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/elasticsearch/migrations"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/postgres"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/rabbitmq"
 	appHttp "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/transports/http"
@@ -62,10 +63,9 @@ func NewApp() *App {
 		appLogger.Fatal("failed to connect postgres", "error", err)
 	}
 
-	// Infrastructure adapters (PostgreSQL repositories).
 	productRepo := postgres.NewProductRepo()
+	cateRepo := postgres.NewCategoryRepo()
 
-	// RabbitMQ is optional for local development; log and continue if unavailable.
 	dispatcher := dispatcher.NewEventDispatcher(appLogger, nil)
 	var mqMgr mqmanager.Manager
 	mqMgr, err = rabbitmq.NewRabbitMQManager(cfg.RabbitMQ, appLogger, dispatcher)
@@ -73,21 +73,25 @@ func NewApp() *App {
 		appLogger.Fatal("failed to connect rabbitmq, running without message broker", "error", err)
 	}
 
-	// Elasticsearch is optional for local development; log and continue if unavailable.
-	// esIndexer, _ := NewElasticsearchProducts(cfg.Elasticsearch, appLogger)
+	esClient, err := elasticsearch.NewClient(cfg.Elasticsearch, appLogger)
+	if err != nil {
+		appLogger.Fatal("elasticsearch unavailable, running without search index", "error", err)
+	}
+	esIndexer := elasticsearch.NewProductIndexer(esClient, migrations.ProductsIndex)
 
-	// Application layer — command, query, and event handlers.
 	app := application.Application{
 		Commands: application.Commands{
-			CreateProduct: command.NewCreateProductHandler(productRepo, db, mqMgr.Producer()),
-			UpdateProduct: command.NewUpdateProductHandler(productRepo, db, mqMgr.Producer()),
+			CreateProduct: command.NewCreateProductHandler(productRepo, cateRepo, db, mqMgr.Producer()),
+			UpdateProduct: command.NewUpdateProductHandler(productRepo, cateRepo, db, mqMgr.Producer()),
 			DeleteProduct: command.NewDeleteProductHandler(productRepo, db, mqMgr.Producer()),
 		},
 		Queries: application.Queries{
 			ListProduct: query.NewListProductHandler(productRepo, db),
 		},
 		EventHandlers: application.EventHandlers{
-			OnProductCreated: eventhandler.NewOnProductCreatedHandler(),
+			OnProductCreated: eventhandler.NewOnProductCreatedHandler(appLogger, esIndexer),
+			OnProductUpdated: eventhandler.NewOnProductUpdatedHandler(appLogger, esIndexer),
+			OnProductDeleted: eventhandler.NewOnProductDeletedHandler(appLogger, esIndexer),
 		},
 	}
 
@@ -103,7 +107,7 @@ func NewApp() *App {
 		logger:          appLogger,
 		httpServer:      httpServer,
 		rabbitmqManager: mqMgr,
-		// esIndexer:       esIndexer,
+		esIndexer:       esIndexer,
 	}
 }
 

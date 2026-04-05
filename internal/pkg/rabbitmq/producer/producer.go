@@ -22,7 +22,7 @@ type rabbitMQProducer struct {
 	logger     logger.Logger
 }
 
-func NewRabbitMQProducer(conn connection.IConnection, logger logger.Logger, config *RabbitMQProducerConfiguration) Producer {
+func NewRabbitMQProducer(logger logger.Logger, conn connection.IConnection, config *RabbitMQProducerConfiguration) Producer {
 	return &rabbitMQProducer{
 		connection: conn,
 		config:     config,

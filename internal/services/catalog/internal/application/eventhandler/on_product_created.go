@@ -2,31 +2,32 @@ package eventhandler
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/dispatcher"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/event"
 )
 
-type OnProductCreatedHandler = dispatcher.TypedHandler[event.ProductCreatedEvent]
+type OnProductCreatedHandler = dispatcher.TypedHandler[event.ProductPayload]
 
 type onProductCreatedHandler struct {
-	// TODO: inject read-side dependencies here (e.g., elasticsearch client, notification service)
+	logger         logger.Logger
+	productIndexer productIndexer
 }
 
-// NewOnProductCreatedHandler constructs a new OnProductCreatedHandler.
-func NewOnProductCreatedHandler() OnProductCreatedHandler {
-	return &onProductCreatedHandler{}
+type productIndexer interface {
+	IndexProduct(ctx context.Context, payload event.ProductPayload) error
+	DeleteProduct(ctx context.Context, productID string) error
 }
 
-//	processes the incoming product.created event.
-//
-// ec provides access to the typed payload, correlation_id, timestamp, and RabbitMQ metadata.
-func (h *onProductCreatedHandler) Handle(ctx context.Context, ec types.EventContext[event.ProductCreatedEvent]) error {
+func NewOnProductCreatedHandler(logger logger.Logger, productIndexer productIndexer) OnProductCreatedHandler {
+	return &onProductCreatedHandler{logger: logger, productIndexer: productIndexer}
+}
+
+func (h *onProductCreatedHandler) Handle(ctx context.Context, ec types.EventContext[event.ProductPayload]) error {
+	h.logger.Info("Processing product created event", "payload", ec.Payload())
 	payload := ec.Payload()
-	fmt.Printf("=========ID=%v", payload.ID)
-	fmt.Printf("=========Title=%v", payload.Title)
 
-	return nil
+	return h.productIndexer.IndexProduct(ctx, payload)
 }

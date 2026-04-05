@@ -4,39 +4,65 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"time"
 
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
-	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/aggregate"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/event"
 )
 
-// ProductIndexer implements the Elasticsearch write-side projection for products.
+type productDoc struct {
+	ID           string                  `json:"id"`
+	CategoryID   string                  `json:"category_id"`
+	CategoryName string                  `json:"category_name"`
+	Title        string                  `json:"title"`
+	Description  string                  `json:"description"`
+	Brand        *string                 `json:"brand,omitempty"`
+	Price        string                  `json:"price"`
+	Currency     string                  `json:"currency"`
+	Condition    string                  `json:"condition"`
+	Status       string                  `json:"status"`
+	Images       customtypes.Attachments `json:"images"`
+	CreatedAt    time.Time               `json:"created_at"`
+	UpdatedAt    time.Time               `json:"updated_at"`
+	DeletedAt    *time.Time              `json:"deleted_at,omitempty"`
+}
+
 type ProductIndexer struct {
 	client    *Client
 	indexName string
-	logger    logger.Logger
 }
 
-// NewProductIndexer constructs a ProductIndexer.
-func NewProductIndexer(client *Client, indexName string, lg logger.Logger) *ProductIndexer {
+func NewProductIndexer(client *Client, indexName string) *ProductIndexer {
 	return &ProductIndexer{
 		client:    client,
 		indexName: indexName,
-		logger:    lg,
 	}
 }
 
-// IndexProduct indexes (or replaces) a product document.
-func (i *ProductIndexer) IndexProduct(ctx context.Context, p *aggregate.Product, categoryName string) error {
-	return i.index(ctx, p, categoryName)
+func (i *ProductIndexer) IndexProduct(ctx context.Context, p event.ProductPayload) error {
+	doc := productDoc{
+		ID:           p.ID,
+		CategoryID:   p.CategoryID,
+		CategoryName: p.CategoryName,
+		Title:        p.Title,
+		Description:  p.Description,
+		Brand:        p.Brand,
+		Price:        p.Price,
+		Currency:     p.Currency,
+		Condition:    p.Condition,
+		Status:       p.Status,
+		Images:       p.Images,
+		CreatedAt:    p.CreatedAt,
+		UpdatedAt:    p.UpdateAt,
+	}
+
+	return i.index(ctx, &doc)
 }
 
-// UpdateProduct updates a product document (alias for IndexProduct — ES does a full replace on same ID).
-func (i *ProductIndexer) UpdateProduct(ctx context.Context, p *aggregate.Product, categoryName string) error {
-	return i.index(ctx, p, categoryName)
-}
+// func (i *ProductIndexer) UpdateProduct(ctx context.Context, p *aggregate.Product, categoryName string) error {
+// 	return i.index(ctx, p)
+// }
 
-// DeleteProduct removes a product document by its ID.
 func (i *ProductIndexer) DeleteProduct(ctx context.Context, productID string) error {
 	if i.client == nil {
 		return nil
@@ -48,56 +74,38 @@ func (i *ProductIndexer) DeleteProduct(ctx context.Context, productID string) er
 		i.client.Elasticsearch().Delete.WithContext(ctx),
 	)
 	if err != nil {
-		i.logger.Error("elasticsearch delete failed", "error", err, "product_id", productID)
-		return nil
+		return err
 	}
 	defer res.Body.Close()
 
 	if res.IsError() {
-		i.logger.Error("elasticsearch delete failed", "status", res.Status(), "product_id", productID)
 		return nil
 	}
 
 	return nil
 }
 
-func (i *ProductIndexer) index(ctx context.Context, p *aggregate.Product, categoryName string) error {
-	if i.client == nil {
-		return nil
-	}
-
-	doc := toProductDoc(p, categoryName)
-	body, err := json.Marshal(doc)
+func (i *ProductIndexer) index(ctx context.Context, p *productDoc) error {
+	body, err := json.Marshal(p)
 	if err != nil {
-		i.logger.Error("failed to marshal product doc for elasticsearch", "error", err, "product_id", p.ID())
-		return nil
+		return err
 	}
 
 	res, err := i.client.Elasticsearch().Index(
 		i.indexName,
 		bytes.NewReader(body),
-		i.client.Elasticsearch().Index.WithDocumentID(p.ID()),
+		i.client.Elasticsearch().Index.WithDocumentID(p.ID),
 		i.client.Elasticsearch().Index.WithContext(ctx),
 		i.client.Elasticsearch().Index.WithRefresh("false"),
 	)
 	if err != nil {
-		i.logger.Error("elasticsearch index failed", "error", err, "product_id", p.ID())
-		return nil
+		return err
 	}
 	defer res.Body.Close()
 
 	if res.IsError() {
-		i.logger.Error("elasticsearch index failed", "status", res.Status(), "product_id", p.ID())
-		return nil
+		return err
 	}
 
 	return nil
-}
-
-// String implements fmt.Stringer so that nil clients produce clean output in logs.
-func (i *ProductIndexer) String() string {
-	if i == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("ProductIndexer{index=%s}", i.indexName)
 }

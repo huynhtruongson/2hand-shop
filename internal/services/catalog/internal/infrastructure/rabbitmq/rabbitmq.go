@@ -56,4 +56,6 @@ func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger, d *disp
 
 func BuildEventDispatcher(d *dispatcher.EventDispatcher, handlers application.EventHandlers) {
 	d.Register("catalog.product.created", dispatcher.NewTypedHandler(handlers.OnProductCreated))
+	d.Register("catalog.product.updated", dispatcher.NewTypedHandler(handlers.OnProductUpdated))
+	d.Register("catalog.product.deleted", dispatcher.NewTypedHandler(handlers.OnProductDeleted))
 }

@@ -64,6 +64,19 @@ func Response(c *gin.Context, data any, message ...string) {
 	})
 }
 
+func ResponseWithPagination(c *gin.Context, data any, pagination *types.Pagination, message ...string) {
+	msg := "ok"
+	if len(message) > 0 {
+		msg = message[0]
+	}
+	c.JSON(http.StatusOK, types.HttpResponse{
+		Success:    true,
+		Message:    msg,
+		Data:       data,
+		Pagination: pagination,
+	})
+}
+
 func validationMessage(fe validator.FieldError) string {
 	field := strings.ToLower(fe.Field())
 	switch fe.Tag() {

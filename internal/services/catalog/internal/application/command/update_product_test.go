@@ -284,8 +284,9 @@ func TestUpdateProductHandler_Handle(t *testing.T) {
 			t.Parallel()
 
 			db := &mockDB{}
+			cateRepo := newMockCategoryRepository()
 			pub := &mockPublisher{}
-			h := NewUpdateProductHandler(tc.repo, db, pub)
+			h := NewUpdateProductHandler(tc.repo, cateRepo, db, pub)
 
 			resp, err := h.Handle(context.Background(), tc.cmd)
 

@@ -7,6 +7,7 @@ import (
 	errpkg "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
 	caterrors "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/event"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/repository"
 )
 
@@ -49,9 +50,8 @@ func (h *deleteProductHandler) Handle(ctx context.Context, cmd DeleteProductComm
 			return err
 		}
 
-		_ = product // MarkDeleted mutates in-place; no additional action needed
+		return h.publisher.PublishMessage(ctx, event.NewProductDeletedEvent(product.ID()))
 
-		return nil
 	})
 	if err != nil {
 		if _, ok := errpkg.As(err); ok {

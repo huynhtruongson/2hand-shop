@@ -11,7 +11,9 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/infrastructure/elasticsearch/migrator"
 )
 
-const productsIndex = "products"
+// ProductsIndex is the Elasticsearch index name for products.
+// Exported so bootstrap can instantiate the ProductIndexer with the same name.
+const ProductsIndex = "products"
 
 // productsMapping defines the Elasticsearch index mapping for the products index.
 const productsMapping = `{
@@ -60,7 +62,7 @@ func (m *createProductIndexMigration) Up(ctx context.Context, es *elasticsearch.
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	res, err := es.Indices.Exists([]string{productsIndex}, es.Indices.Exists.WithContext(ctx))
+	res, err := es.Indices.Exists([]string{ProductsIndex}, es.Indices.Exists.WithContext(ctx))
 	if err != nil {
 		return fmt.Errorf("check products index exists: %w", err)
 	}
@@ -71,7 +73,7 @@ func (m *createProductIndexMigration) Up(ctx context.Context, es *elasticsearch.
 	}
 
 	res, err = es.Indices.Create(
-		productsIndex,
+		ProductsIndex,
 		es.Indices.Create.WithBody(bytes.NewReader([]byte(productsMapping))),
 		es.Indices.Create.WithContext(ctx),
 	)
@@ -92,7 +94,7 @@ func (m *createProductIndexMigration) Down(ctx context.Context, es *elasticsearc
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	res, err := es.Indices.Delete([]string{productsIndex}, es.Indices.Delete.WithContext(ctx))
+	res, err := es.Indices.Delete([]string{ProductsIndex}, es.Indices.Delete.WithContext(ctx))
 	if err != nil {
 		return fmt.Errorf("delete products index: %w", err)
 	}

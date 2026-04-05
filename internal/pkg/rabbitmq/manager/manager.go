@@ -41,11 +41,11 @@ func NewRabbitMQManager(logger logger.Logger, consumerConn, produercerConn conne
 	}
 
 	for _, consumerConfig := range manager.config.ConsumerConfigurations {
-		consumer := consumer.NewRabbitMQConsumer(manager.consumerConnection, consumerConfig)
+		consumer := consumer.NewRabbitMQConsumer(manager.logger, manager.consumerConnection, consumerConfig)
 		manager.consumers = append(manager.consumers, consumer)
 	}
 	if manager.config.ProducerConfiguration != nil {
-		manager.producer = producer.NewRabbitMQProducer(manager.producerConnection, manager.logger, manager.config.ProducerConfiguration)
+		manager.producer = producer.NewRabbitMQProducer(manager.logger, manager.producerConnection, manager.config.ProducerConfiguration)
 	}
 	return manager
 }

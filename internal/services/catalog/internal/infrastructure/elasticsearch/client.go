@@ -25,11 +25,6 @@ func NewClient(cfg config.ElasticsearchConfig, lg logger.Logger) (*Client, error
 		Username:  cfg.Username,
 		Password:  cfg.Password,
 	}
-	if cfg.Username != "" && cfg.Password != "" {
-		esCfg.Username = cfg.Username
-		esCfg.Password = cfg.Password
-	}
-
 	es, err := elasticsearch.NewClient(esCfg)
 	if err != nil {
 		lg.Warn("failed to create elasticsearch client, running without search index", "error", err)

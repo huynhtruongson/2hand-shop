@@ -32,8 +32,8 @@ type ProductRepository interface {
 }
 
 type ListProductsFilter struct {
-	Category  *string  // nil means no category filter
-	Condition *string  // nil means no condition filter
-	Statuses  []string // e.g. []string{"published"}
-	Sort      *string  // e.g. "price", "-price"
+	Category   *string  // nil means no category filter
+	Statuses   []string // e.g. []string{"published"}
+	Conditions []string // e.g. []string{"new", "like_new"}
+	Sort       *string  // e.g. "price", "-price"
 }

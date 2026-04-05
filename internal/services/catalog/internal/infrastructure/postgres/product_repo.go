@@ -209,7 +209,6 @@ func (r *ProductRepo) List(ctx context.Context, q postgressqlx.Querier, filter r
 		where  = "WHERE p.deleted_at IS NULL"
 		argIdx = 1
 	)
-
 	if filter.Category != nil {
 		join = " JOIN categories c ON c.id = p.category_id"
 		where += " AND c.slug = $" + utils.Itoa(argIdx)
@@ -217,9 +216,9 @@ func (r *ProductRepo) List(ctx context.Context, q postgressqlx.Querier, filter r
 		argIdx++
 	}
 
-	if filter.Condition != nil {
-		where += " AND p.condition = $" + utils.Itoa(argIdx)
-		args = append(args, *filter.Condition)
+	if len(filter.Conditions) > 0 {
+		where += " AND p.condition = ANY($" + utils.Itoa(argIdx) + ")"
+		args = append(args, pq.Array(filter.Conditions))
 		argIdx++
 	}
 
@@ -237,7 +236,6 @@ func (r *ProductRepo) List(ctx context.Context, q postgressqlx.Querier, filter r
 	}
 
 	orderBy := buildSortClause(filter.Sort)
-	args = append(args, page.Limit, page.Offset)
 
 	// Data query
 	dataQuery := `
