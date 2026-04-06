@@ -32,7 +32,7 @@ func TestDeleteProductHandler_Handle(t *testing.T) {
 		"prod-1", "cat-1", "Old Title", "Old Description",
 		customtypes.MustNewPrice("5000"), valueobject.CurrencyUSD,
 		valueobject.ConditionGood, valueobject.ProductStatusPublished,
-		customtypes.Attachments{}, time.Now().UTC(), time.Now().UTC(), nil, nil,
+		customtypes.Attachments{}, nil, time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
 	tests := []struct {
@@ -46,7 +46,7 @@ func TestDeleteProductHandler_Handle(t *testing.T) {
 			cmd:  DeleteProductCommand{ProductID: "prod-1"},
 			repo: &mockDeleteProductRepository{
 				mockProductRepository: mockProductRepository{},
-				getByIDResult:        existingProduct,
+				getByIDResult:         existingProduct,
 			},
 		},
 		{
@@ -66,7 +66,7 @@ func TestDeleteProductHandler_Handle(t *testing.T) {
 			cmd:  DeleteProductCommand{ProductID: "prod-1"},
 			repo: &mockDeleteProductRepository{
 				mockProductRepository: mockProductRepository{deleteErr: errors.New("unexpected db error")},
-				getByIDResult:        existingProduct,
+				getByIDResult:         existingProduct,
 			},
 			wantErr: caterrors.ErrInternal,
 		},

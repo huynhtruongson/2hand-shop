@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
-	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/valueobject"
 	apperrors "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
+	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/valueobject"
 	"github.com/shopspring/decimal"
 )
 
@@ -30,7 +30,7 @@ func rebuildProduct(
 	return UnmarshalProductFromDB(
 		id, categoryID, title, description,
 		price, currency, condition, status,
-		images, createdAt, updatedAt, deletedAt, brand,
+		images, brand, createdAt, updatedAt, deletedAt,
 	)
 }
 
@@ -521,7 +521,7 @@ func TestProduct_Validate(t *testing.T) {
 					"id", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
+					nil, nil, time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
 			wantErr: false,
@@ -533,7 +533,7 @@ func TestProduct_Validate(t *testing.T) {
 					"  ", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
+					nil, nil, time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
 			wantErr: true,
@@ -545,7 +545,7 @@ func TestProduct_Validate(t *testing.T) {
 					"id", "  ", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
+					nil, nil, time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
 			wantErr: true,
@@ -557,7 +557,7 @@ func TestProduct_Validate(t *testing.T) {
 					"id", "cat", "  ", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
+					nil, nil, time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
 			wantErr: true,
@@ -569,7 +569,7 @@ func TestProduct_Validate(t *testing.T) {
 					"id", "cat", "title", "desc",
 					customtypes.MustNewPrice("0"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
+					nil, nil, time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
 			wantErr: true,
@@ -582,7 +582,7 @@ func TestProduct_Validate(t *testing.T) {
 					"id", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					bad, valueobject.ProductStatusDraft,
-					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
+					nil, nil, time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
 			wantErr: true,
@@ -595,7 +595,7 @@ func TestProduct_Validate(t *testing.T) {
 					"id", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					valueobject.ConditionNew, bad,
-					nil, time.Now().UTC(), time.Now().UTC(), nil, nil,
+					nil, nil, time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
 			wantErr: true,

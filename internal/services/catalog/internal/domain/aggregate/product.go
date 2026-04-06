@@ -136,9 +136,8 @@ func UnmarshalProductFromDB(
 	price customtypes.Price, currency valueobject.Currency,
 	condition valueobject.Condition, status valueobject.ProductStatus,
 	images customtypes.Attachments,
-	createdAt, updatedAt time.Time,
+	brand *string, createdAt, updatedAt time.Time,
 	deletedAt *time.Time,
-	brand *string,
 ) *Product {
 	return &Product{
 		id:          id,

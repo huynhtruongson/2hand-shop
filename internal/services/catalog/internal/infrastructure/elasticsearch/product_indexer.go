@@ -24,7 +24,6 @@ type productDoc struct {
 	Images       customtypes.Attachments `json:"images"`
 	CreatedAt    time.Time               `json:"created_at"`
 	UpdatedAt    time.Time               `json:"updated_at"`
-	DeletedAt    *time.Time              `json:"deleted_at,omitempty"`
 }
 
 type ProductIndexer struct {
@@ -58,10 +57,6 @@ func (i *ProductIndexer) IndexProduct(ctx context.Context, p event.ProductPayloa
 
 	return i.index(ctx, &doc)
 }
-
-// func (i *ProductIndexer) UpdateProduct(ctx context.Context, p *aggregate.Product, categoryName string) error {
-// 	return i.index(ctx, p)
-// }
 
 func (i *ProductIndexer) DeleteProduct(ctx context.Context, productID string) error {
 	if i.client == nil {

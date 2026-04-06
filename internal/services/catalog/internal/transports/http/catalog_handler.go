@@ -56,6 +56,23 @@ func (h *CatalogHandler) ListProductHandler(ctx *gin.Context) {
 	utils.ResponseWithPagination(ctx, dto.ToProductsDTO(result.Products), &result.Pagination)
 }
 
+func (h *CatalogHandler) SearchProductsHandler(ctx *gin.Context) {
+	var req dto.SearchProductsRequest
+
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	result, err := h.app.Queries.SearchProducts.Handle(ctx, req.ToSearchProductsQuery())
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.ResponseWithPagination(ctx, dto.ToSearchProductsDTO(result.Products), &result.Pagination)
+}
+
 func (h *CatalogHandler) GetProductHandler(ctx *gin.Context) {
 	var req dto.GetProductRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
@@ -116,6 +133,24 @@ func (h *CatalogHandler) CreateProductRequestHandler(ctx *gin.Context) {
 	}
 
 	utils.Response(ctx, dto.CreateProductRequestResponseDTO{ProductRequestID: result.ProductRequestID})
+}
+
+func (h *CatalogHandler) PublishProductHandler(ctx *gin.Context) {
+	var reqID dto.ProductRequestID
+	if err := ctx.ShouldBindUri(&reqID); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	_, err := h.app.Commands.PublishProduct.Handle(ctx, command.PublishProductCommand{
+		ProductID: reqID.ProductID,
+	})
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, nil)
 }
 
 func (h *CatalogHandler) DeleteProductHandler(ctx *gin.Context) {

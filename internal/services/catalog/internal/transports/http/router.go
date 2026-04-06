@@ -76,6 +76,7 @@ func (s *HttpServer) Addr() string {
 
 func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *CatalogHandler) {
 	// public routes
+	r.GET("/products/search", catalogHandler.SearchProductsHandler)
 	r.GET("/products", catalogHandler.ListProductHandler)
 	r.GET("/products/:product_id", catalogHandler.GetProductHandler)
 
@@ -94,6 +95,7 @@ func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *Catal
 	adminRoutes := r.Group("", authMiddleware, auth.RequireRole("admin"))
 	adminRoutes.POST("/products", catalogHandler.CreateProductHandler)
 	adminRoutes.PUT("/products/:product_id", catalogHandler.UpdateProductHandler)
+	adminRoutes.POST("/products/:product_id/publish", catalogHandler.PublishProductHandler)
 	adminRoutes.DELETE("/products/:product_id", catalogHandler.DeleteProductHandler)
 	adminRoutes.POST("/product-requests/:product_request_id/accept", catalogHandler.AcceptProductRequestHandler)
 	adminRoutes.POST("/product-requests/:product_request_id/reject", catalogHandler.RejectProductRequestHandler)

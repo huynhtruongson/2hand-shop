@@ -16,6 +16,7 @@ type Commands struct {
 	CreateProduct        command.CreateProductHandler
 	DeleteProduct        command.DeleteProductHandler
 	UpdateProduct        command.UpdateProductHandler
+	PublishProduct       command.PublishProductHandler
 	CreateProductRequest command.CreateProductRequestHandler
 	UpdateProductRequest command.UpdateProductRequestHandler
 	DeleteProductRequest command.DeleteProductRequestHandler
@@ -24,8 +25,9 @@ type Commands struct {
 }
 
 type Queries struct {
-	ListProduct         query.ListProductHandler
-	GetProduct          query.GetProductHandler
+	SearchProducts    query.SearchProductsHandler
+	ListProduct       query.ListProductHandler
+	GetProduct        query.GetProductHandler
 	ListProductRequests query.ListProductRequestsHandler
 }
 

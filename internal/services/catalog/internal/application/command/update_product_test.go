@@ -44,7 +44,7 @@ func TestUpdateProductHandler_Handle(t *testing.T) {
 		"Old Title", "Old Description",
 		customtypes.MustNewPrice("5000"), valueobject.CurrencyUSD,
 		valueobject.ConditionGood, valueobject.ProductStatusPublished,
-		customtypes.Attachments{}, time.Now().UTC(), time.Now().UTC(), nil, nil,
+		customtypes.Attachments{}, nil, time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
 	existingDraftProduct := aggregate.UnmarshalProductFromDB(
@@ -52,7 +52,7 @@ func TestUpdateProductHandler_Handle(t *testing.T) {
 		"Draft Title", "Draft Description",
 		customtypes.MustNewPrice("3000"), valueobject.CurrencyEUR,
 		valueobject.ConditionLikeNew, valueobject.ProductStatusDraft,
-		customtypes.Attachments{}, time.Now().UTC(), time.Now().UTC(), nil, nil,
+		customtypes.Attachments{}, nil, time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
 	existingSoldProduct := aggregate.UnmarshalProductFromDB(
@@ -60,7 +60,7 @@ func TestUpdateProductHandler_Handle(t *testing.T) {
 		"Sold Title", "Sold Description",
 		customtypes.MustNewPrice("1000"), valueobject.CurrencyUSD,
 		valueobject.ConditionNew, valueobject.ProductStatusSold,
-		customtypes.Attachments{}, time.Now().UTC(), time.Now().UTC(), nil, nil,
+		customtypes.Attachments{}, nil, time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
 	existingArchivedProduct := aggregate.UnmarshalProductFromDB(
@@ -68,7 +68,7 @@ func TestUpdateProductHandler_Handle(t *testing.T) {
 		"Archived Title", "Archived Description",
 		customtypes.MustNewPrice("2000"), valueobject.CurrencyUSD,
 		valueobject.ConditionNew, valueobject.ProductStatusArchived,
-		customtypes.Attachments{}, time.Now().UTC(), time.Now().UTC(), nil, nil,
+		customtypes.Attachments{}, nil, time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
 	newTitle := "New Title"
@@ -154,7 +154,7 @@ func TestUpdateProductHandler_Handle(t *testing.T) {
 			},
 			repo: &mockUpdateProductRepository{
 				mockProductRepository: mockProductRepository{},
-				getByIDResult:          existingDraftProduct,
+				getByIDResult:         existingDraftProduct,
 			},
 			wantResp: UpdateProductResponse{},
 			assertRepo: func(t *testing.T, repo *mockProductRepository, tx *mockTX) {

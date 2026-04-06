@@ -44,7 +44,7 @@ func TestGetProductHandler_Handle(t *testing.T) {
 		"prod-1", "cat-1", "Test Product", "A test description",
 		customtypes.MustNewPrice("9999"), valueobject.CurrencyUSD,
 		valueobject.ConditionNew, valueobject.ProductStatusPublished,
-		customtypes.Attachments{}, time.Now().UTC(), time.Now().UTC(), nil, nil,
+		customtypes.Attachments{}, nil, time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
 	tests := []struct {

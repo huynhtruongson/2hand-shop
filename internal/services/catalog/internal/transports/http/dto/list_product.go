@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"time"
+
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/query"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/aggregate"
@@ -36,6 +38,8 @@ type Product struct {
 	Currency    string                  `json:"currency"`
 	Condition   string                  `json:"condition"`
 	Images      customtypes.Attachments `json:"images"`
+	CreatedAt   time.Time               `json:"created_at"`
+	UpdatedAt   time.Time               `json:"updated_at"`
 }
 
 func ToProductsDTO(domainProducts []aggregate.Product) []Product {
@@ -51,6 +55,8 @@ func ToProductsDTO(domainProducts []aggregate.Product) []Product {
 			Currency:    p.Currency().String(),
 			Condition:   p.Condition().String(),
 			Images:      p.Images(),
+			CreatedAt:   p.CreatedAt(),
+			UpdatedAt:   p.UpdatedAt(),
 		}
 	}
 	return products

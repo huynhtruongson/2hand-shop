@@ -82,10 +82,10 @@ func (m productModel) toAggregate() (*aggregate.Product, error) {
 		condition,
 		status,
 		m.Images,
+		utils.NullStringToStringPtr(m.Brand),
 		m.CreatedAt,
 		m.UpdatedAt,
 		utils.NullTimeToPtr(m.DeletedAt),
-		utils.NullStringToStringPtr(m.Brand),
 	), nil
 }
 
