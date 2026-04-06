@@ -65,6 +65,7 @@ func NewApp() *App {
 
 	productRepo := postgres.NewProductRepo()
 	cateRepo := postgres.NewCategoryRepo()
+	productRequestRepo := postgres.NewProductRequestRepo()
 
 	dispatcher := dispatcher.NewEventDispatcher(appLogger, nil)
 	var mqMgr mqmanager.Manager
@@ -81,18 +82,23 @@ func NewApp() *App {
 
 	app := application.Application{
 		Commands: application.Commands{
-			CreateProduct: command.NewCreateProductHandler(productRepo, cateRepo, db, mqMgr.Producer()),
-			UpdateProduct: command.NewUpdateProductHandler(productRepo, cateRepo, db, mqMgr.Producer()),
-			DeleteProduct: command.NewDeleteProductHandler(productRepo, db, mqMgr.Producer()),
+			CreateProduct:        command.NewCreateProductHandler(productRepo, cateRepo, db, mqMgr.Producer()),
+			UpdateProduct:        command.NewUpdateProductHandler(productRepo, cateRepo, db, mqMgr.Producer()),
+			DeleteProduct:        command.NewDeleteProductHandler(productRepo, db, mqMgr.Producer()),
+			CreateProductRequest: command.NewCreateProductRequestHandler(productRequestRepo, db, mqMgr.Producer()),
+			UpdateProductRequest: command.NewUpdateProductRequestHandler(productRequestRepo, db, mqMgr.Producer()),
+			DeleteProductRequest: command.NewDeleteProductRequestHandler(productRequestRepo, db, mqMgr.Producer()),
 		},
 		Queries: application.Queries{
-			ListProduct: query.NewListProductHandler(productRepo, db),
-			GetProduct:  query.NewGetProductHandler(productRepo, db),
+			ListProduct:         query.NewListProductHandler(productRepo, db),
+			GetProduct:          query.NewGetProductHandler(productRepo, db),
+			ListProductRequests: query.NewListProductRequestsHandler(productRequestRepo, db),
 		},
 		EventHandlers: application.EventHandlers{
-			OnProductCreated: eventhandler.NewOnProductCreatedHandler(appLogger, esIndexer),
-			OnProductUpdated: eventhandler.NewOnProductUpdatedHandler(appLogger, esIndexer),
-			OnProductDeleted: eventhandler.NewOnProductDeletedHandler(appLogger, esIndexer),
+			OnProductCreated:       eventhandler.NewOnProductCreatedHandler(appLogger, esIndexer),
+			OnProductUpdated:       eventhandler.NewOnProductUpdatedHandler(appLogger, esIndexer),
+			OnProductDeleted:       eventhandler.NewOnProductDeletedHandler(appLogger, esIndexer),
+			OnProductRequestCreated: eventhandler.NewOnProductRequestCreatedHandler(appLogger),
 		},
 	}
 

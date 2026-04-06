@@ -23,8 +23,8 @@ type ProductRequest struct {
 	images            customtypes.Attachments
 	expectedPrice     customtypes.Price
 	contactInfo       string
-	adminRejectReason string
-	adminNote         string
+	adminRejectReason *string
+	adminNote         *string
 	createdAt         time.Time
 	updatedAt         time.Time
 	deletedAt         *time.Time
@@ -33,7 +33,7 @@ type ProductRequest struct {
 func NewProductRequest(
 	id, sellerID, categoryID, title, description string, brand *string,
 	expectedPrice customtypes.Price, condition valueobject.Condition,
-	images customtypes.Attachments, contactInfo string,
+	images customtypes.Attachments, contactInfo string, adminNote *string,
 ) (*ProductRequest, error) {
 
 	pr := &ProductRequest{
@@ -49,6 +49,7 @@ func NewProductRequest(
 		status:        valueobject.ProductRequestStatusPending,
 		expectedPrice: expectedPrice,
 		contactInfo:   contactInfo,
+		adminNote:     adminNote,
 		createdAt:     time.Now().UTC(),
 		updatedAt:     time.Now().UTC(),
 	}
@@ -71,8 +72,8 @@ func (pr *ProductRequest) Images() customtypes.Attachments          { return pr.
 func (pr *ProductRequest) Status() valueobject.ProductRequestStatus { return pr.status }
 func (pr *ProductRequest) ExpectedPrice() customtypes.Price         { return pr.expectedPrice }
 func (pr *ProductRequest) ContactInfo() string                      { return pr.contactInfo }
-func (pr *ProductRequest) AdminRejectReason() string                { return pr.adminRejectReason }
-func (pr *ProductRequest) AdminNote() string                        { return pr.adminNote }
+func (pr *ProductRequest) AdminRejectReason() *string               { return pr.adminRejectReason }
+func (pr *ProductRequest) AdminNote() *string                       { return pr.adminNote }
 func (pr *ProductRequest) CreatedAt() time.Time                     { return pr.createdAt }
 func (pr *ProductRequest) UpdatedAt() time.Time                     { return pr.updatedAt }
 func (pr *ProductRequest) DeletedAt() *time.Time                    { return pr.deletedAt }
@@ -83,11 +84,25 @@ func (pr *ProductRequest) MarkDeleted() {
 	pr.updatedAt = now
 }
 
+// Delete soft-deletes the product request after verifying ownership.
+// It succeeds regardless of the current status (pending, approved, or rejected).
+func (pr *ProductRequest) Delete(sellerID string) error {
+	if pr.sellerID != sellerID {
+		return caterrors.ErrUnauthorized.WithMeta("product_request_id", pr.id)
+	}
+	pr.MarkDeleted()
+	return nil
+}
+
 func (pr *ProductRequest) Update(
+	sellerID string,
 	title, description string, categoryID string, brand *string,
 	expectedPrice customtypes.Price, condition valueobject.Condition, images customtypes.Attachments,
 	contactInfo string,
 ) error {
+	if pr.sellerID != sellerID {
+		return caterrors.ErrUnauthorized.WithMeta("product_request_id", pr.id)
+	}
 	if pr.status != valueobject.ProductRequestStatusPending {
 		return caterrors.ErrProductRequestNotEditable.
 			WithMeta("current_status", pr.status.String()).
@@ -116,7 +131,7 @@ func UnmarshalProductRequestFromDB(
 	expectedPrice customtypes.Price, currency valueobject.Currency, brand *string,
 	condition valueobject.Condition, status valueobject.ProductRequestStatus,
 	images customtypes.Attachments, contactInfo string,
-	adminRejectReason string, adminNote string,
+	adminRejectReason *string, adminNote *string,
 	createdAt, updatedAt time.Time, deletedAt *time.Time,
 ) *ProductRequest {
 	return &ProductRequest{

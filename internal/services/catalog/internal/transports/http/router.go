@@ -75,20 +75,32 @@ func (s *HttpServer) Addr() string {
 }
 
 func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *CatalogHandler) {
-	// public route
+	// public routes
 	r.GET("/products", catalogHandler.ListProductHandler)
 	r.GET("/products/:product_id", catalogHandler.GetProductHandler)
 
-	adminRoute := r.Group("", auth.CognitoAuth(auth.CognitoConfig{
+	// private routes
+	authMiddleware := auth.CognitoAuth(auth.CognitoConfig{
 		Region:     sv.cfg.Cognito.Region,
 		UserPoolID: sv.cfg.Cognito.UserPoolID,
 		ClientID:   sv.cfg.Cognito.ClientID,
 		TokenUse:   "access",
-	}), auth.RequireRole("admin"))
+	})
 
-	adminRoute.POST("/products", catalogHandler.CreateProductHandler)
-	adminRoute.PUT("/products/:product_id", catalogHandler.UpdateProductHandler)
-	adminRoute.DELETE("/products/:product_id", catalogHandler.DeleteProductHandler)
+	authRoutes := r.Group("", authMiddleware)
+	authRoutes.GET("/product-requests", catalogHandler.ListProductRequestsHandler)
+
+	// admin
+	adminRoutes := r.Group("", authMiddleware, auth.RequireRole("admin"))
+	adminRoutes.POST("/products", catalogHandler.CreateProductHandler)
+	adminRoutes.PUT("/products/:product_id", catalogHandler.UpdateProductHandler)
+	adminRoutes.DELETE("/products/:product_id", catalogHandler.DeleteProductHandler)
+
+	// client
+	sellerRoutes := r.Group("", authMiddleware, auth.RequireRole("client"))
+	sellerRoutes.POST("/product-requests", catalogHandler.CreateProductRequestHandler)
+	sellerRoutes.PUT("/product-requests/:product_request_id", catalogHandler.UpdateProductRequestHandler)
+	sellerRoutes.DELETE("/product-requests/:product_request_id", catalogHandler.DeleteProductRequestHandler)
 }
 func nullableTypeFunc(field reflect.Value) interface{} {
 	presentField := field.FieldByName("Present")

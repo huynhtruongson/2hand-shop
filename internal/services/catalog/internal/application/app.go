@@ -13,19 +13,24 @@ type Application struct {
 }
 
 type Commands struct {
-	CreateProduct command.CreateProductHandler
-	UpdateProduct command.UpdateProductHandler
-	DeleteProduct command.DeleteProductHandler
+	CreateProduct        command.CreateProductHandler
+	DeleteProduct        command.DeleteProductHandler
+	UpdateProduct        command.UpdateProductHandler
+	CreateProductRequest command.CreateProductRequestHandler
+	UpdateProductRequest command.UpdateProductRequestHandler
+	DeleteProductRequest command.DeleteProductRequestHandler
 }
 
 type Queries struct {
-	ListProduct query.ListProductHandler
-	GetProduct  query.GetProductHandler
+	ListProduct         query.ListProductHandler
+	GetProduct          query.GetProductHandler
+	ListProductRequests query.ListProductRequestsHandler
 }
 
 // EventHandlers holds all event-driven (RabbitMQ consumer) handlers.
 type EventHandlers struct {
-	OnProductCreated eventhandler.OnProductCreatedHandler
-	OnProductUpdated eventhandler.OnProductUpdatedHandler
-	OnProductDeleted eventhandler.OnProductDeletedHandler
+	OnProductCreated        eventhandler.OnProductCreatedHandler
+	OnProductUpdated        eventhandler.OnProductUpdatedHandler
+	OnProductDeleted        eventhandler.OnProductDeletedHandler
+	OnProductRequestCreated eventhandler.OnProductRequestCreatedHandler
 }

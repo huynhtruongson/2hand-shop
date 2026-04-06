@@ -58,4 +58,5 @@ func BuildEventDispatcher(d *dispatcher.EventDispatcher, handlers application.Ev
 	d.Register("catalog.product.created", dispatcher.NewTypedHandler(handlers.OnProductCreated))
 	d.Register("catalog.product.updated", dispatcher.NewTypedHandler(handlers.OnProductUpdated))
 	d.Register("catalog.product.deleted", dispatcher.NewTypedHandler(handlers.OnProductDeleted))
+	// d.Register("catalog.product_request.created", dispatcher.NewTypedHandler(handlers.OnProductRequestCreated))
 }

@@ -16,17 +16,19 @@ func makeValidNewProductRequestParams() (
 	id, sellerID, categoryID, title, description string,
 	expectedPrice customtypes.Price,
 	condition valueobject.Condition, images customtypes.Attachments, contactInfo string,
+	adminNote *string,
 ) {
 	return "req-001", "seller-001", "cat-001", "Vintage Lamp", "A beautiful vintage desk lamp",
 		customtypes.MustNewPrice("30.00"),
-		valueobject.ConditionGood, makeAttachments(), "seller@example.com"
+		valueobject.ConditionGood, makeAttachments(), "seller@example.com", nil
 }
 
 func rebuildProductRequest(
 	id, sellerID, categoryID, title, description string,
 	expectedPrice customtypes.Price,
 	condition valueobject.Condition, status valueobject.ProductRequestStatus,
-	images customtypes.Attachments, contactInfo, adminRejectReason, adminNote string,
+	images customtypes.Attachments, contactInfo string,
+	adminRejectReason, adminNote *string,
 	createdAt, updatedAt time.Time, deletedAt *time.Time,
 ) *ProductRequest {
 	return UnmarshalProductRequestFromDB(
@@ -43,10 +45,10 @@ func rebuildProductRequest(
 
 func TestNewProductRequest_Valid(t *testing.T) {
 	t.Parallel()
-	id, sellerID, categoryID, title, description, expPrice, condition, images, contact := makeValidNewProductRequestParams()
+	id, sellerID, categoryID, title, description, expPrice, condition, images, contact, adminNote := makeValidNewProductRequestParams()
 
 	pr, err := NewProductRequest(id, sellerID, categoryID, title, description,
-		nil, expPrice, condition, images, contact)
+		nil, expPrice, condition, images, contact, adminNote)
 
 	if err != nil {
 		t.Fatalf("NewProductRequest() unexpected error: %v", err)
@@ -81,11 +83,11 @@ func TestNewProductRequest_Valid(t *testing.T) {
 	if pr.ContactInfo() != contact {
 		t.Errorf("ContactInfo() = %q, want %q", pr.ContactInfo(), contact)
 	}
-	if pr.AdminRejectReason() != "" {
-		t.Errorf("AdminRejectReason() = %q, want empty string", pr.AdminRejectReason())
+	if pr.AdminRejectReason() != nil {
+		t.Errorf("AdminRejectReason() = %v, want nil", pr.AdminRejectReason())
 	}
-	if pr.AdminNote() != "" {
-		t.Errorf("AdminNote() = %q, want empty string", pr.AdminNote())
+	if pr.AdminNote() != nil {
+		t.Errorf("AdminNote() = %v, want nil", pr.AdminNote())
 	}
 	if pr.DeletedAt() != nil {
 		t.Error("DeletedAt() = not nil, want nil for a new product request")
@@ -94,7 +96,7 @@ func TestNewProductRequest_Valid(t *testing.T) {
 
 func TestNewProductRequest_ValidationErrors(t *testing.T) {
 	t.Parallel()
-	id, sellerID, categoryID, title, description, expPrice, condition, images, contact := makeValidNewProductRequestParams()
+	id, sellerID, categoryID, title, description, expPrice, condition, images, contact, _ := makeValidNewProductRequestParams()
 
 	tests := []struct {
 		name    string
@@ -171,7 +173,7 @@ func TestNewProductRequest_ValidationErrors(t *testing.T) {
 			tc.modify()
 
 			_, err := NewProductRequest(id, sellerID, categoryID, title, description,
-				nil, expPrice, condition, images, contact)
+				nil, expPrice, condition, images, contact, new(string))
 
 			if tc.wantErr == "" {
 				if err != nil {
@@ -203,7 +205,9 @@ func TestProductRequest_Getters(t *testing.T) {
 		"req-getter", "seller-001", "cat-001", "Title", "Desc",
 		customtypes.MustNewPrice("50.00"),
 		valueobject.ConditionFair, valueobject.ProductRequestStatusApproved,
-		makeAttachments(), "email@test.com", "not good enough", "internal note",
+		makeAttachments(), "email@test.com",
+		func() *string { s := "not good enough"; return &s }(),
+		func() *string { s := "internal note"; return &s }(),
 		now, now, nil,
 	)
 
@@ -228,11 +232,11 @@ func TestProductRequest_Getters(t *testing.T) {
 	if got := pr.ContactInfo(); got != "email@test.com" {
 		t.Errorf("ContactInfo() = %q, want %q", got, "email@test.com")
 	}
-	if got := pr.AdminRejectReason(); got != "not good enough" {
-		t.Errorf("AdminRejectReason() = %q, want %q", got, "not good enough")
+	if got := pr.AdminRejectReason(); got == nil || *got != "not good enough" {
+		t.Errorf("AdminRejectReason() = %v, want %q", got, "not good enough")
 	}
-	if got := pr.AdminNote(); got != "internal note" {
-		t.Errorf("AdminNote() = %q, want %q", got, "internal note")
+	if got := pr.AdminNote(); got == nil || *got != "internal note" {
+		t.Errorf("AdminNote() = %v, want %q", got, "internal note")
 	}
 	if got := pr.DeletedAt(); got != nil {
 		t.Errorf("DeletedAt() = %v, want nil", got)
@@ -247,12 +251,14 @@ func TestProductRequest_Update(t *testing.T) {
 		"req-upd", "seller-001", "cat-001", "Old Title", "Old Desc",
 		customtypes.MustNewPrice("10.00"),
 		valueobject.ConditionFair, valueobject.ProductRequestStatusPending,
-		nil, "old@email.com", "", "",
+		nil, "old@email.com",
+		nil, nil,
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
 	newImages := makeAttachments()
 	err := pr.Update(
+		"seller-001",
 		"New Title", "New Desc", "cat-002", nil,
 		customtypes.MustNewPrice("20.00"),
 		valueobject.ConditionLikeNew, newImages, "new@email.com",
@@ -287,11 +293,12 @@ func TestProductRequest_Update_NotEditableWhenApproved(t *testing.T) {
 		"req-upd-app", "seller-001", "cat-001", "Title", "Desc",
 		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, valueobject.ProductRequestStatusApproved,
-		nil, "email@test.com", "", "",
+		nil, "email@test.com",
+		nil, nil,
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
-	err := pr.Update("New Title", "New Desc", "cat-001", nil,
+	err := pr.Update("seller-001", "New Title", "New Desc", "cat-001", nil,
 		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, nil, "new@email.com")
 
@@ -313,11 +320,12 @@ func TestProductRequest_Update_NotEditableWhenRejected(t *testing.T) {
 		"req-upd-rej", "seller-001", "cat-001", "Title", "Desc",
 		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, valueobject.ProductRequestStatusRejected,
-		nil, "email@test.com", "reason", "",
+		nil, "email@test.com",
+		nil, nil,
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
-	err := pr.Update("New Title", "New Desc", "cat-001", nil,
+	err := pr.Update("seller-001", "New Title", "New Desc", "cat-001", nil,
 		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, nil, "new@email.com")
 
@@ -338,11 +346,12 @@ func TestProductRequest_Update_StatusUnchanged(t *testing.T) {
 		"req-upd-status", "seller-001", "cat-001", "Title", "Desc",
 		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
-		nil, "email@test.com", "", "",
+		nil, "email@test.com",
+		nil, nil,
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
-	err := pr.Update("New Title", "New Desc", "cat-001", nil,
+	err := pr.Update("seller-001", "New Title", "New Desc", "cat-001", nil,
 		customtypes.MustNewPrice("1.00"),
 		valueobject.ConditionNew, nil, "new@email.com")
 
@@ -361,12 +370,15 @@ func TestUnmarshalProductRequestFromDB(t *testing.T) {
 	now := time.Now().UTC()
 	deletedAt := now.Add(-2 * time.Hour)
 	images := makeAttachments()
+	rejectReason := "too expensive"
+	adminNote := "check again"
 
 	pr := rebuildProductRequest(
 		"req-db", "seller-db", "cat-db", "Stored Title", "Stored Desc",
 		customtypes.MustNewPrice("88.00"),
 		valueobject.ConditionPoor, valueobject.ProductRequestStatusRejected,
-		images, "stored@email.com", "too expensive", "check again",
+		images, "stored@email.com",
+		&rejectReason, &adminNote,
 		now, now, &deletedAt,
 	)
 
@@ -376,8 +388,8 @@ func TestUnmarshalProductRequestFromDB(t *testing.T) {
 	if pr.Status() != valueobject.ProductRequestStatusRejected {
 		t.Errorf("Status() = %v, want %v", pr.Status(), valueobject.ProductRequestStatusRejected)
 	}
-	if pr.AdminRejectReason() != "too expensive" {
-		t.Errorf("AdminRejectReason() = %q, want %q", pr.AdminRejectReason(), "too expensive")
+	if pr.AdminRejectReason() == nil || *pr.AdminRejectReason() != "too expensive" {
+		t.Errorf("AdminRejectReason() = %v, want %q", pr.AdminRejectReason(), "too expensive")
 	}
 	if pr.DeletedAt() == nil || !pr.DeletedAt().Equal(deletedAt) {
 		t.Errorf("DeletedAt() = %v, want %v", pr.DeletedAt(), deletedAt)
@@ -395,7 +407,8 @@ func TestProductRequest_imageURLs(t *testing.T) {
 		customtypes.Attachments{
 			{Key: "products/img-a.jpg", ContentType: "image/jpeg", Type: customtypes.AttachmentTypeImage},
 			{Key: "products/img-b.png", ContentType: "image/png", Type: customtypes.AttachmentTypeImage},
-		}, "email@test.com", "", "",
+		}, "email@test.com",
+		nil, nil,
 		time.Now().UTC(), time.Now().UTC(), nil,
 	)
 
@@ -427,7 +440,7 @@ func TestProductRequest_Validate(t *testing.T) {
 					"id", "seller", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
-					nil, "email@test.com", "", "",
+					nil, "email@test.com", nil, nil,
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
@@ -440,7 +453,7 @@ func TestProductRequest_Validate(t *testing.T) {
 					"  ", "seller", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
-					nil, "email@test.com", "", "",
+					nil, "email@test.com", nil, nil,
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
@@ -453,7 +466,7 @@ func TestProductRequest_Validate(t *testing.T) {
 					"id", "  ", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
-					nil, "email@test.com", "", "",
+					nil, "email@test.com", nil, nil,
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
@@ -466,7 +479,7 @@ func TestProductRequest_Validate(t *testing.T) {
 					"id", "seller", "  ", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
-					nil, "email@test.com", "", "",
+					nil, "email@test.com", nil, nil,
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
@@ -479,7 +492,7 @@ func TestProductRequest_Validate(t *testing.T) {
 					"id", "seller", "cat", "  ", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
-					nil, "email@test.com", "", "",
+					nil, "email@test.com", nil, nil,
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
@@ -492,7 +505,7 @@ func TestProductRequest_Validate(t *testing.T) {
 					"id", "seller", "cat", "title", "desc",
 					customtypes.MustNewPrice("0"), valueobject.CurrencyUSD,
 					nil, valueobject.ConditionNew, valueobject.ProductRequestStatusPending,
-					nil, "email@test.com", "", "",
+					nil, "email@test.com", nil, nil,
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
@@ -506,7 +519,7 @@ func TestProductRequest_Validate(t *testing.T) {
 					"id", "seller", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					nil, bad, valueobject.ProductRequestStatusPending,
-					nil, "email@test.com", "", "",
+					nil, "email@test.com", nil, nil,
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},
@@ -520,7 +533,7 @@ func TestProductRequest_Validate(t *testing.T) {
 					"id", "seller", "cat", "title", "desc",
 					customtypes.MustNewPrice("1.00"), valueobject.CurrencyUSD,
 					nil, valueobject.ConditionNew, bad,
-					nil, "email@test.com", "", "",
+					nil, "email@test.com", nil, nil,
 					time.Now().UTC(), time.Now().UTC(), nil,
 				)
 			},

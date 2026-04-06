@@ -25,4 +25,22 @@ type ProductRequestRepository interface {
 
 	// ListBySellerID retrieves all ProductRequests belonging to a given seller.
 	ListBySellerID(ctx context.Context, q postgressqlx.Querier, sellerID string) ([]*aggregate.ProductRequest, error)
+
+	// Delete soft-deletes a ProductRequest by setting its deleted_at timestamp.
+	// Implementations must return ErrProductRequestNotFound if no request matches.
+	Delete(ctx context.Context, q postgressqlx.Querier, id string) error
+
+	// List returns product requests matching filter, paginated, plus the total count.
+	// Must only return non-deleted records (deleted_at IS NULL).
+	// If filter.SellerID is non-nil the query is automatically scoped to that seller.
+	List(ctx context.Context, q postgressqlx.Querier, filter ListProductRequestsFilter, page postgressqlx.Page) ([]*aggregate.ProductRequest, int, error)
+}
+
+// ListProductRequestsFilter carries optional filters for a paginated product-request listing.
+type ListProductRequestsFilter struct {
+	Category   *string  // filters by category slug via JOIN — nil means no filter
+	SellerID   *string  // forces the query to a single seller's requests; nil means any seller
+	Statuses   []string // e.g. []string{"pending", "approved"} — empty means all
+	Conditions []string // e.g. []string{"new", "like_new"} — empty means all
+	Sort       *string  // "created_at", "-created_at", "expected_price", "-expected_price"
 }

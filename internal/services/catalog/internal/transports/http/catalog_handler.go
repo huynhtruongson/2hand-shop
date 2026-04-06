@@ -6,6 +6,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/utils"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/command"
+	caterrors "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/transports/http/dto"
 )
 
@@ -93,6 +94,30 @@ func (h *CatalogHandler) UpdateProductHandler(ctx *gin.Context) {
 	utils.Response(ctx, nil)
 }
 
+func (h *CatalogHandler) CreateProductRequestHandler(ctx *gin.Context) {
+	var req dto.CreateProductRequestDTO
+
+	if err := ctx.ShouldBind(&req); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	authUser, ok := auth.UserFromCtx(ctx)
+	if !ok {
+		utils.ResponseError(ctx, caterrors.ErrUnauthorized)
+		return
+	}
+	req.SellerID = authUser.UserID()
+
+	result, err := h.app.Commands.CreateProductRequest.Handle(ctx, req.ToCreateProductRequestCommand())
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, dto.CreateProductRequestResponseDTO{ProductRequestID: result.ProductRequestID})
+}
+
 func (h *CatalogHandler) DeleteProductHandler(ctx *gin.Context) {
 	var reqID dto.ProductRequestID
 	if err := ctx.ShouldBindUri(&reqID); err != nil {
@@ -107,4 +132,83 @@ func (h *CatalogHandler) DeleteProductHandler(ctx *gin.Context) {
 	}
 
 	utils.Response(ctx, nil)
+}
+
+func (h *CatalogHandler) ListProductRequestsHandler(ctx *gin.Context) {
+	var req dto.ListProductRequestsRequest
+
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	query := req.ToListProductRequestsQuery()
+
+	authUser, ok := auth.UserFromCtx(ctx)
+	if !ok {
+		utils.ResponseError(ctx, caterrors.ErrUnauthorized)
+		return
+	}
+	query.User = &authUser
+
+	result, err := h.app.Queries.ListProductRequests.Handle(ctx, query)
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.ResponseWithPagination(ctx, dto.ToProductRequestsDTO(result.ProductRequests), &result.Pagination)
+}
+
+func (h *CatalogHandler) UpdateProductRequestHandler(ctx *gin.Context) {
+	var reqID dto.ProductRequestID
+	if err := ctx.ShouldBindUri(&reqID); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+	var req dto.UpdateProductRequestDTO
+	if err := ctx.ShouldBind(&req); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	authUser, ok := auth.UserFromCtx(ctx)
+	if !ok {
+		utils.ResponseError(ctx, caterrors.ErrUnauthorized)
+		return
+	}
+
+	result, err := h.app.Commands.UpdateProductRequest.Handle(ctx,
+		req.ToUpdateProductRequestCommand(reqID.ProductID, authUser.UserID()))
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, result)
+}
+
+func (h *CatalogHandler) DeleteProductRequestHandler(ctx *gin.Context) {
+	var reqID dto.ProductRequestID
+	if err := ctx.ShouldBindUri(&reqID); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	authUser, ok := auth.UserFromCtx(ctx)
+	if !ok {
+		utils.ResponseError(ctx, caterrors.ErrUnauthorized)
+		return
+	}
+
+	_, err := h.app.Commands.DeleteProductRequest.Handle(ctx, command.DeleteProductRequestCommand{
+		ProductRequestID: reqID.ProductID,
+		SellerID:         authUser.UserID(),
+	})
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, dto.DeleteProductRequestResponseDTO{})
 }
