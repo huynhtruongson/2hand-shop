@@ -95,6 +95,8 @@ func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *Catal
 	adminRoutes.POST("/products", catalogHandler.CreateProductHandler)
 	adminRoutes.PUT("/products/:product_id", catalogHandler.UpdateProductHandler)
 	adminRoutes.DELETE("/products/:product_id", catalogHandler.DeleteProductHandler)
+	adminRoutes.POST("/product-requests/:product_request_id/accept", catalogHandler.AcceptProductRequestHandler)
+	adminRoutes.POST("/product-requests/:product_request_id/reject", catalogHandler.RejectProductRequestHandler)
 
 	// client
 	sellerRoutes := r.Group("", authMiddleware, auth.RequireRole("client"))

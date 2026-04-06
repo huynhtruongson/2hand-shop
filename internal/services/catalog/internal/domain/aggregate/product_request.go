@@ -84,8 +84,29 @@ func (pr *ProductRequest) MarkDeleted() {
 	pr.updatedAt = now
 }
 
-// Delete soft-deletes the product request after verifying ownership.
-// It succeeds regardless of the current status (pending, approved, or rejected).
+func (pr *ProductRequest) Approve() error {
+	if !pr.status.CanTransitionTo(valueobject.ProductRequestStatusApproved) {
+		return caterrors.ErrProductRequestNotEditable.
+			WithMeta("current_status", pr.status.String()).
+			WithMeta("action", "approve")
+	}
+	pr.status = valueobject.ProductRequestStatusApproved
+	pr.updatedAt = time.Now().UTC()
+	return nil
+}
+
+func (pr *ProductRequest) Reject(reason string) error {
+	if !pr.status.CanTransitionTo(valueobject.ProductRequestStatusRejected) {
+		return caterrors.ErrProductRequestNotEditable.
+			WithMeta("current_status", pr.status.String()).
+			WithMeta("action", "reject")
+	}
+	pr.status = valueobject.ProductRequestStatusRejected
+	pr.adminRejectReason = &reason
+	pr.updatedAt = time.Now().UTC()
+	return nil
+}
+
 func (pr *ProductRequest) Delete(sellerID string) error {
 	if pr.sellerID != sellerID {
 		return caterrors.ErrUnauthorized.WithMeta("product_request_id", pr.id)

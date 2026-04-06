@@ -19,6 +19,8 @@ type Commands struct {
 	CreateProductRequest command.CreateProductRequestHandler
 	UpdateProductRequest command.UpdateProductRequestHandler
 	DeleteProductRequest command.DeleteProductRequestHandler
+	AcceptProductRequest command.AcceptProductRequestHandler
+	RejectProductRequest command.RejectProductRequestHandler
 }
 
 type Queries struct {

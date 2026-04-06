@@ -11,16 +11,13 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/repository"
 )
 
-// DeleteProductRequestHandler defines the command handler interface for deleting product requests.
 type DeleteProductRequestHandler cqrs.CommandHandler[DeleteProductRequestCommand, DeleteProductRequestResponse]
 
-// DeleteProductRequestCommand represents the input for deleting a product request.
 type DeleteProductRequestCommand struct {
 	ProductRequestID string
 	SellerID         string
 }
 
-// DeleteProductRequestResponse is returned after a successful deletion.
 type DeleteProductRequestResponse struct{}
 
 type deleteProductRequestHandler struct {
@@ -29,7 +26,6 @@ type deleteProductRequestHandler struct {
 	publisher          publisher
 }
 
-// NewDeleteProductRequestHandler constructs a DeleteProductRequestHandler.
 func NewDeleteProductRequestHandler(
 	productRequestRepo repository.ProductRequestRepository,
 	db postgressqlx.DB,
@@ -42,8 +38,6 @@ func NewDeleteProductRequestHandler(
 	}
 }
 
-// Handle processes DeleteProductRequestCommand.
-// The domain layer enforces ownership. Deletion succeeds regardless of status.
 func (h *deleteProductRequestHandler) Handle(ctx context.Context, cmd DeleteProductRequestCommand) (DeleteProductRequestResponse, error) {
 	err := postgressqlx.ExecTx(ctx, h.db, func(ctx context.Context, tx postgressqlx.TX) error {
 		pr, err := h.productRequestRepo.GetByID(ctx, tx, cmd.ProductRequestID)

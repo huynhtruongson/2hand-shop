@@ -88,6 +88,8 @@ func NewApp() *App {
 			CreateProductRequest: command.NewCreateProductRequestHandler(productRequestRepo, db, mqMgr.Producer()),
 			UpdateProductRequest: command.NewUpdateProductRequestHandler(productRequestRepo, db, mqMgr.Producer()),
 			DeleteProductRequest: command.NewDeleteProductRequestHandler(productRequestRepo, db, mqMgr.Producer()),
+			AcceptProductRequest: command.NewAcceptProductRequestHandler(productRequestRepo, productRepo, cateRepo, db, mqMgr.Producer()),
+			RejectProductRequest: command.NewRejectProductRequestHandler(productRequestRepo, db, mqMgr.Producer()),
 		},
 		Queries: application.Queries{
 			ListProduct:         query.NewListProductHandler(productRepo, db),

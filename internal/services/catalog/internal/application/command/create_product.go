@@ -8,7 +8,6 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
 	errpkg "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
-	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/types"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/aggregate"
 	caterrors "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/event"
@@ -30,10 +29,6 @@ type CreateProductCommand struct {
 
 type CreateProductResponse struct {
 	ProductID string
-}
-
-type publisher interface {
-	PublishMessage(ctx context.Context, message types.DomainEvent, opts ...types.MessageOption) error
 }
 
 type createProductHandler struct {

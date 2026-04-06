@@ -212,3 +212,46 @@ func (h *CatalogHandler) DeleteProductRequestHandler(ctx *gin.Context) {
 
 	utils.Response(ctx, dto.DeleteProductRequestResponseDTO{})
 }
+
+func (h *CatalogHandler) AcceptProductRequestHandler(ctx *gin.Context) {
+	var reqID dto.ProductRequestPathID
+	if err := ctx.ShouldBindUri(&reqID); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	result, err := h.app.Commands.AcceptProductRequest.Handle(ctx, command.AcceptProductRequestCommand{
+		ProductRequestID: reqID.ProductRequestID,
+	})
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, dto.AcceptProductRequestResponseDTO{ProductID: result.ProductID})
+}
+
+func (h *CatalogHandler) RejectProductRequestHandler(ctx *gin.Context) {
+	var reqID dto.ProductRequestPathID
+	if err := ctx.ShouldBindUri(&reqID); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	var reqBody dto.RejectProductRequestDTO
+	if err := ctx.ShouldBind(&reqBody); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	_, err := h.app.Commands.RejectProductRequest.Handle(ctx, command.RejectProductRequestCommand{
+		ProductRequestID:  reqID.ProductRequestID,
+		AdminRejectReason: reqBody.AdminRejectReason,
+	})
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, dto.RejectProductRequestResponseDTO{})
+}
