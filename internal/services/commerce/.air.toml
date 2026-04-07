@@ -1,0 +1,17 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Paths are relative to the service directory inside the container (/workspace/internal/services/commerce)
+cmd = "go build -o ./tmp/main ./cmd/app"
+bin = "./tmp/main"
+full_bin = "./tmp/main"
+include_ext = ["go"]
+exclude_dir = ["tmp", "test"]
+delay = 1000          # ms to wait before rebuild after a change
+
+[log]
+time = true
+
+[misc]
+clean_on_exit = true
