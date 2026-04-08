@@ -37,3 +37,20 @@ func (i CartItem) ProductName() string            { return i.productName }
 func (i CartItem) Price() customtypes.Price       { return i.price }
 func (i CartItem) Currency() valueobject.Currency { return i.currency }
 func (i CartItem) AddedAt() time.Time             { return i.addedAt }
+
+// ToStripeUnit converts this Money to Stripe's smallest-unit integer.
+//
+// For 2-decimal currencies (USD, EUR, GBP) the result is cents:
+//
+//	MustMoney("10.99", "USD").ToStripeUnit() → 1099
+//
+// For zero-decimal currencies (JPY, KRW, VND) the result is the exact integer:
+//
+//	MustMoney("1500", "JPY").ToStripeUnit() → 1500
+func (i CartItem) ToStripeAmountUnit() int64 {
+	if i.currency.Decimals() == 0 {
+		i := i.price.IntPart()
+		return i
+	}
+	return i.price.Cents()
+}

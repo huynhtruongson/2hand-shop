@@ -18,8 +18,10 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/application"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/application/command"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/application/query"
-	appHttp "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/transports/http"
+	mqrabbitmq "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/infrastructure/rabbitmq"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/infrastructure/postgres"
+	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/infrastructure/stripe"
+	appHttp "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/transports/http"
 )
 
 // App holds all managed dependencies for the commerce service.
@@ -57,17 +59,31 @@ func NewApp() *App {
 		appLogger.Fatal("failed to connect postgres", "error", err)
 	}
 
+	stripe.Init(cfg.Stripe)
+
+	// RabbitMQ is required — fail fast if unavailable.
+	mgr, err := mqrabbitmq.NewRabbitMQManager(cfg.RabbitMQ, appLogger, nil)
+	if err != nil {
+		appLogger.Fatal("failed to create rabbitmq manager", "error", err)
+	}
+
 	// Infrastructure layer.
 	cartRepo := postgres.NewCartRepo()
+	orderRepo := postgres.NewOrderRepo()
+	paymentRepo := postgres.NewPaymentRepo()
+	checkoutProv := stripe.NewPaymentProvider(appLogger)
 
 	// Application layer — wire all command and query handlers.
 	app := application.Application{
 		Commands: application.Commands{
-			AddToCart:      command.NewAddToCartHandler(cartRepo, db),
-			RemoveFromCart: command.NewRemoveFromCartHandler(cartRepo, db),
+			AddToCart:             command.NewAddToCartHandler(cartRepo, db),
+			RemoveFromCart:        command.NewRemoveFromCartHandler(cartRepo, db),
+			CreateCheckoutSession: command.NewCreateCheckoutSessionHandler(cartRepo, orderRepo, checkoutProv, db),
+			CompleteCheckout: command.NewCompleteCheckoutHandler(cartRepo, orderRepo, paymentRepo, db, mgr.Producer(), appLogger),
 		},
 		Queries: application.Queries{
-			GetCart: query.NewGetCartHandler(cartRepo),
+			GetCart:            query.NewGetCartHandler(cartRepo),
+			GetCheckoutSession: query.NewGetCheckoutSessionHandler(checkoutProv),
 		},
 	}
 
@@ -76,10 +92,11 @@ func NewApp() *App {
 	httpServer := appHttp.NewHttpServer(cfg, appLogger, commerceHandler)
 
 	return &App{
-		cfg:        cfg,
-		db:         db,
-		logger:     appLogger,
-		httpServer: httpServer,
+		cfg:             cfg,
+		db:              db,
+		logger:          appLogger,
+		httpServer:      httpServer,
+		rabbitmqManager: mgr,
 	}
 }
 
@@ -97,13 +114,11 @@ func (a *App) Run() {
 	}()
 
 	// Start RabbitMQ consumers in background.
-	if a.rabbitmqManager != nil {
-		go func() {
-			if err := a.rabbitmqManager.Start(context.Background()); err != nil {
-				a.logger.Error("rabbitmq manager start failed", "error", err)
-			}
-		}()
-	}
+	go func() {
+		if err := a.rabbitmqManager.Start(context.Background()); err != nil {
+			a.logger.Error("rabbitmq manager start failed", "error", err)
+		}
+	}()
 
 	// Wait for shutdown signal.
 	quit := make(chan os.Signal, 1)
@@ -119,10 +134,8 @@ func (a *App) Run() {
 		a.logger.Fatal("http server forced to shutdown", "error", err)
 	}
 
-	if a.rabbitmqManager != nil {
-		if err := a.rabbitmqManager.Stop(); err != nil {
-			a.logger.Error("rabbitmq manager stop failed", "error", err)
-		}
+	if err := a.rabbitmqManager.Stop(); err != nil {
+		a.logger.Error("rabbitmq manager stop failed", "error", err)
 	}
 
 	if err := a.db.Close(); err != nil {

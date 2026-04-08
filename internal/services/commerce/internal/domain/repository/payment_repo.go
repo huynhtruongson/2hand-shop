@@ -21,6 +21,10 @@ type PaymentRepository interface {
 	// GetByOrderID retrieves a payment by its associated order ID.
 	GetByOrderID(ctx context.Context, q postgressqlx.Querier, orderID string) (*aggregate.Payment, error)
 
+	// GetByStripeSessionID retrieves a payment by its Stripe Checkout Session ID.
+	// Used by the Stripe webhook handler to correlate incoming Stripe events.
+	GetByStripeSessionID(ctx context.Context, q postgressqlx.Querier, stripeSessionID string) (*aggregate.Payment, error)
+
 	// List returns payments matching the given filter and pagination, plus the total count.
 	List(ctx context.Context, q postgressqlx.Querier, filter ListPaymentsFilter, page postgressqlx.Page) ([]aggregate.Payment, int, error)
 }

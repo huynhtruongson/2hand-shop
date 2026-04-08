@@ -10,6 +10,7 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/middleware"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/config"
+	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/infrastructure/stripe"
 )
 
 type HttpServer struct {
@@ -55,6 +56,12 @@ func (s *HttpServer) Addr() string {
 }
 
 func (sv *HttpServer) registerCommerceRoutes(r *gin.Engine, commerceHandler *CommerceHandler) {
+	// Stripe webhook — no Cognito auth; Stripe HMAC signature is the auth mechanism.
+	r.POST("/webhooks/stripe",
+		stripe.WebhookMiddleware(sv.cfg.Stripe.WebhookSecret),
+		commerceHandler.HandleCheckoutWebhook,
+	)
+
 	authMiddleware := auth.CognitoAuth(auth.CognitoConfig{
 		Region:     sv.cfg.Cognito.Region,
 		UserPoolID: sv.cfg.Cognito.UserPoolID,
@@ -68,4 +75,7 @@ func (sv *HttpServer) registerCommerceRoutes(r *gin.Engine, commerceHandler *Com
 	clientRoutes.POST("/add_to_cart", commerceHandler.AddToCart)
 	clientRoutes.DELETE("/cart/:product_id", commerceHandler.RemoveFromCart)
 
+	// Checkout routes.
+	clientRoutes.POST("/checkout", commerceHandler.CreateCheckoutSession)
+	clientRoutes.GET("/checkout/sessions", commerceHandler.GetCheckoutSession)
 }

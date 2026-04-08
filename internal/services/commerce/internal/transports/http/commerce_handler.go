@@ -1,7 +1,10 @@
 package http
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
+	"github.com/stripe/stripe-go/v85"
 
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/auth"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/utils"
@@ -21,7 +24,6 @@ func NewCommerceHandler(app application.Application) *CommerceHandler {
 }
 
 // AddToCart handles POST /add_to_cart.
-// It reads the authenticated user from context and delegates to the AddToCart command handler.
 func (h *CommerceHandler) AddToCart(ctx *gin.Context) {
 	var req dto.AddToCartRequestDTO
 	if err := ctx.ShouldBind(&req); err != nil {
@@ -54,7 +56,6 @@ func (h *CommerceHandler) AddToCart(ctx *gin.Context) {
 }
 
 // GetCart handles GET /cart.
-// It reads the authenticated user from context and returns their cart.
 func (h *CommerceHandler) GetCart(ctx *gin.Context) {
 	authUser, ok := auth.UserFromCtx(ctx)
 	if !ok {
@@ -70,7 +71,6 @@ func (h *CommerceHandler) GetCart(ctx *gin.Context) {
 		return
 	}
 
-	// Serialize the Cart aggregate directly as the JSON response body.
 	cart := result.Cart
 	items := make([]dto.CartItemDTO, 0, cart.ItemCount())
 	for _, item := range cart.Items() {
@@ -96,7 +96,6 @@ func (h *CommerceHandler) GetCart(ctx *gin.Context) {
 }
 
 // RemoveFromCart handles DELETE /cart/:product_id.
-// It reads the authenticated user from context and delegates to the RemoveFromCart command handler.
 func (h *CommerceHandler) RemoveFromCart(ctx *gin.Context) {
 	var req dto.RemoveFromCartRequestDTO
 	if err := ctx.ShouldBindUri(&req); err != nil {
@@ -123,4 +122,120 @@ func (h *CommerceHandler) RemoveFromCart(ctx *gin.Context) {
 		CartID:         result.CartID,
 		TotalItemCount: result.TotalItemCount,
 	})
+}
+
+// CreateCheckoutSession handles POST /checkout/sessions.
+func (h *CommerceHandler) CreateCheckoutSession(ctx *gin.Context) {
+	var req dto.CreateCheckoutSessionRequestDTO
+	if err := ctx.ShouldBind(&req); err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	authUser, ok := auth.UserFromCtx(ctx)
+	if !ok {
+		utils.ResponseError(ctx, carterrors.ErrUnauthorized)
+		return
+	}
+
+	result, err := h.app.Commands.CreateCheckoutSession.Handle(ctx, command.CreateCheckoutSessionCommand{
+		UserID:     authUser.UserID(),
+		SuccessURL: req.SuccessURL,
+		CancelURL:  req.CancelURL,
+	})
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, dto.CreateCheckoutSessionResponseDTO{
+		SessionID: result.SessionID,
+		URL:       result.URL,
+	})
+}
+
+// GetCheckoutSession handles GET /checkout/sessions.
+func (h *CommerceHandler) GetCheckoutSession(ctx *gin.Context) {
+	sessionID := ctx.Query("session_id")
+	if sessionID == "" {
+		utils.ResponseError(ctx, carterrors.ErrValidation.WithDetail("session_id", "session_id query parameter is required"))
+		return
+	}
+
+	authUser, ok := auth.UserFromCtx(ctx)
+	if !ok {
+		utils.ResponseError(ctx, carterrors.ErrUnauthorized)
+		return
+	}
+
+	_ = authUser // reserved for future user-level validation
+
+	result, err := h.app.Queries.GetCheckoutSession.Handle(ctx, query.GetCheckoutSessionQuery{
+		SessionID: sessionID,
+	})
+	if err != nil {
+		utils.ResponseError(ctx, err)
+		return
+	}
+
+	utils.Response(ctx, dto.GetCheckoutSessionResponseDTO{
+		SessionID: result.SessionID,
+		Status:    result.Status,
+		Amount:    result.Amount,
+		Currency:  result.Currency,
+	})
+}
+
+// HandleCheckoutWebhook handles POST /webhooks/stripe.
+// No Cognito authentication — Stripe HMAC is the authentication mechanism.
+func (h *CommerceHandler) HandleCheckoutWebhook(ctx *gin.Context) {
+	rawEvent, exists := ctx.Get("stripe_event")
+	if !exists {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "stripe_event not found in context"})
+		return
+	}
+	event, ok := rawEvent.(stripe.Event)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid stripe event type"})
+		return
+	}
+
+	switch event.Type {
+	case "checkout.session.completed":
+		sess, ok := event.Data.Object["object"].(*stripe.CheckoutSession)
+		if !ok {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse checkout session"})
+			return
+		}
+
+		orderID := ""
+		userID := ""
+		if sess.Metadata != nil {
+			orderID = sess.Metadata["order_id"]
+			userID = sess.Metadata["user_id"]
+		}
+
+		if orderID == "" || userID == "" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "missing order_id or user_id in session metadata"})
+			return
+		}
+
+		cmd := command.CompleteCheckoutCommand{
+			StripeSessionID: sess.ID,
+			StripeEventID:   event.ID,
+			OrderID:         orderID,
+			UserID:          userID,
+			AmountCents:     sess.AmountTotal,
+			Currency:        string(sess.Currency),
+		}
+
+		if err := h.app.Commands.CompleteCheckout.Handle(ctx, cmd); err != nil {
+			utils.ResponseError(ctx, err)
+		}
+
+	default:
+		// Acknowledge unhandled event types without error.
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"received": true})
 }

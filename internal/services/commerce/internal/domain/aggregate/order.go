@@ -29,7 +29,6 @@ type Order struct {
 func NewOrder(
 	id, userID string,
 	items []entity.OrderItem,
-	totalAmount customtypes.Price,
 	currency commercevo.Currency,
 	shippingAddress *commercevo.ShippingAddress,
 ) (*Order, error) {
@@ -44,7 +43,7 @@ func NewOrder(
 		items:           items,
 		refNumber:       utils.GenerateRefNumber("ORD"),
 		subtotalAmount:  subtotal,
-		totalAmount:     totalAmount,
+		totalAmount:     subtotal,
 		currency:        currency,
 		status:          commercevo.OrderStatusPending,
 		shippingAddress: shippingAddress,
@@ -153,9 +152,11 @@ func (o *Order) validate() error {
 	case strings.TrimSpace(o.id) == "":
 		return errors.ErrValidation.WithDetail("id", "id is empty")
 	case strings.TrimSpace(o.userID) == "":
-		return errors.ErrValidation.WithDetail("buyer_id", "buyer_id is empty")
+		return errors.ErrValidation.WithDetail("user_id", "user_id is empty")
 	case len(o.items) == 0:
 		return errors.ErrValidation.WithDetail("items", "order must have at least one item")
+	case !o.subtotalAmount.IsPositive():
+		return errors.ErrValidation.WithDetail("subtotal_amount", "subtotal_amount must be positive")
 	case !o.totalAmount.IsPositive():
 		return errors.ErrValidation.WithDetail("total_amount", "total_amount must be positive")
 	case !o.currency.IsValid():

@@ -12,12 +12,15 @@ type Application struct {
 }
 
 type Commands struct {
-	AddToCart       command.AddToCartHandler
-	RemoveFromCart  command.RemoveFromCartHandler
+	AddToCart             command.AddToCartHandler
+	RemoveFromCart       command.RemoveFromCartHandler
+	CreateCheckoutSession *command.CreateCheckoutSessionHandler
+	CompleteCheckout     *command.CompleteCheckoutHandler
 }
 
 type Queries struct {
-	GetCart query.GetCartHandler
+	GetCart            query.GetCartHandler
+	GetCheckoutSession *query.GetCheckoutSessionHandler
 }
 
 // EventHandlers holds all event-driven (RabbitMQ consumer) handlers.

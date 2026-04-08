@@ -11,33 +11,33 @@ import (
 )
 
 type Payment struct {
-	id             string
-	orderID        string
-	stripeIntentID string
-	refNumber      string
-	totalAmount    customtypes.Price
-	currency       commercevo.Currency
-	status         commercevo.PaymentStatus
-	createdAt      time.Time
-	updatedAt      time.Time
-	deletedAt      *time.Time
+	id              string
+	orderID         string
+	stripeSessionID string
+	refNumber       string
+	totalAmount     customtypes.Price
+	currency        commercevo.Currency
+	status          commercevo.PaymentStatus
+	createdAt       time.Time
+	updatedAt       time.Time
+	deletedAt       *time.Time
 }
 
 func NewPayment(
-	id, orderID, stripeIntentID string,
-	amount customtypes.Price,
+	id, orderID, stripeSessionID string,
+	totalAmount customtypes.Price,
 	currency commercevo.Currency,
 ) (*Payment, error) {
 	p := &Payment{
-		id:             id,
-		orderID:        orderID,
-		stripeIntentID: stripeIntentID,
-		refNumber:      utils.GenerateRefNumber("PAY"),
-		totalAmount:    amount,
-		currency:       currency,
-		status:         commercevo.PaymentStatusPending,
-		createdAt:      time.Now().UTC(),
-		updatedAt:      time.Now().UTC(),
+		id:              id,
+		orderID:         orderID,
+		stripeSessionID: stripeSessionID,
+		refNumber:       utils.GenerateRefNumber("PAY"),
+		totalAmount:     totalAmount,
+		currency:        currency,
+		status:          commercevo.PaymentStatusPending,
+		createdAt:       time.Now().UTC(),
+		updatedAt:       time.Now().UTC(),
 	}
 	if err := p.validate(); err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func NewPayment(
 func (p *Payment) ID() string                       { return p.id }
 func (p *Payment) OrderID() string                  { return p.orderID }
 func (p *Payment) RefNumber() string                { return p.refNumber }
-func (p *Payment) StripeIntentID() string           { return p.stripeIntentID }
+func (p *Payment) StripeSessionID() string          { return p.stripeSessionID }
 func (p *Payment) Amount() customtypes.Price        { return p.totalAmount }
 func (p *Payment) Currency() commercevo.Currency    { return p.currency }
 func (p *Payment) Status() commercevo.PaymentStatus { return p.status }
@@ -92,22 +92,22 @@ func (p *Payment) Refund() error {
 
 // UnmarshalPaymentFromDB reconstructs a Payment from persisted data, skipping validation.
 func UnmarshalPaymentFromDB(
-	id, orderID, stripeIntentID, refNumber string,
+	id, orderID, stripeSessionID, refNumber string,
 	totalAmount customtypes.Price,
 	currency commercevo.Currency,
 	status commercevo.PaymentStatus,
 	createdAt, updatedAt time.Time,
 ) *Payment {
 	return &Payment{
-		id:             id,
-		orderID:        orderID,
-		stripeIntentID: stripeIntentID,
-		refNumber:      refNumber,
-		totalAmount:    totalAmount,
-		currency:       currency,
-		status:         status,
-		createdAt:      createdAt,
-		updatedAt:      updatedAt,
+		id:              id,
+		orderID:         orderID,
+		stripeSessionID: stripeSessionID,
+		refNumber:       refNumber,
+		totalAmount:     totalAmount,
+		currency:        currency,
+		status:          status,
+		createdAt:       createdAt,
+		updatedAt:       updatedAt,
 	}
 }
 

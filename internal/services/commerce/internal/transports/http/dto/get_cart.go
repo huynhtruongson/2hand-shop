@@ -19,11 +19,11 @@ type CartItemDTO struct {
 
 // GetCartResponseDTO is the HTTP response body for GET /cart.
 type GetCartResponseDTO struct {
-	ID          string             `json:"id"`
-	UserID      string             `json:"user_id"`
-	Items       []CartItemDTO      `json:"items"`
-	ItemCount   int                `json:"item_count"`
-	TotalAmount customtypes.Price   `json:"total_amount"`
-	CreatedAt   time.Time          `json:"created_at"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+	ID          string            `json:"id"`
+	UserID      string            `json:"user_id"`
+	Items       []CartItemDTO     `json:"items"`
+	ItemCount   int               `json:"item_count"`
+	TotalAmount customtypes.Price `json:"total_amount"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
 }

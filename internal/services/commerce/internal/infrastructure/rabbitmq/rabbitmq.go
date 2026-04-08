@@ -3,7 +3,6 @@ package rabbitmq
 import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/connection"
-	mqconsumer "github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/consumer"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/dispatcher"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/manager"
 	mqproducer "github.com/huynhtruongson/2hand-shop/internal/pkg/rabbitmq/producer"
@@ -41,27 +40,6 @@ func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger, d *disp
 					Name: "commerce.events",
 					Type: mqproducer.ExchangeTopic,
 				})
-		})
-		b.AddConsumer("commerce-service.commerce.orders.events", func(cb mqconsumer.RabbitMQConsumerConfigurationBuilder) {
-			cb.WithBindingOptions(&mqconsumer.RabbitMQBindingOptions{
-				Exchange: "commerce.events",
-				Key:      "commerce.order.*",
-			})
-			cb.WithHandler(d.Handle)
-		})
-		b.AddConsumer("commerce-service.catalog.product.events", func(cb mqconsumer.RabbitMQConsumerConfigurationBuilder) {
-			cb.WithBindingOptions(&mqconsumer.RabbitMQBindingOptions{
-				Exchange: "catalog.events",
-				Key:      "catalog.product.sold",
-			})
-			cb.WithHandler(d.Handle)
-		})
-		b.AddConsumer("commerce-service.identity.user.events", func(cb mqconsumer.RabbitMQConsumerConfigurationBuilder) {
-			cb.WithBindingOptions(&mqconsumer.RabbitMQBindingOptions{
-				Exchange: "identity.events",
-				Key:      "identity.user.registered",
-			})
-			cb.WithHandler(d.Handle)
 		})
 	})
 
