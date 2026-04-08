@@ -37,4 +37,5 @@ type EventHandlers struct {
 	OnProductUpdated        eventhandler.OnProductUpdatedHandler
 	OnProductDeleted        eventhandler.OnProductDeletedHandler
 	OnProductRequestCreated eventhandler.OnProductRequestCreatedHandler
+	OnCheckoutCompleted     eventhandler.OnCheckoutCompletedHandler
 }

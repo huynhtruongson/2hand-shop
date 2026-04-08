@@ -49,6 +49,13 @@ func NewRabbitMQManager(cfg config.RabbitMQConfig, logger logger.Logger, d *disp
 			})
 			cb.WithHandler(d.Handle)
 		})
+		b.AddConsumer("catalog-service.commerce.events", func(cb mqconsumer.RabbitMQConsumerConfigurationBuilder) {
+			cb.WithBindingOptions(&mqconsumer.RabbitMQBindingOptions{
+				Exchange: "commerce.events",
+				Key:      "commerce.checkout.completed",
+			})
+			cb.WithHandler(d.Handle)
+		})
 	})
 
 	return mgr, nil
@@ -59,4 +66,5 @@ func BuildEventDispatcher(d *dispatcher.EventDispatcher, handlers application.Ev
 	d.Register("catalog.product.updated", dispatcher.NewTypedHandler(handlers.OnProductUpdated))
 	d.Register("catalog.product.deleted", dispatcher.NewTypedHandler(handlers.OnProductDeleted))
 	// d.Register("catalog.product_request.created", dispatcher.NewTypedHandler(handlers.OnProductRequestCreated))
+	d.Register("commerce.checkout.completed", dispatcher.NewTypedHandler(handlers.OnCheckoutCompleted))
 }

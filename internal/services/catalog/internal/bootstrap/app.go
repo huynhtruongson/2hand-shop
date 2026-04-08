@@ -99,10 +99,11 @@ func NewApp() *App {
 			ListProductRequests: query.NewListProductRequestsHandler(productRequestRepo, db),
 		},
 		EventHandlers: application.EventHandlers{
-			OnProductCreated:       eventhandler.NewOnProductCreatedHandler(appLogger, esIndexer),
-			OnProductUpdated:       eventhandler.NewOnProductUpdatedHandler(appLogger, esIndexer),
-			OnProductDeleted:       eventhandler.NewOnProductDeletedHandler(appLogger, esIndexer),
+			OnProductCreated:        eventhandler.NewOnProductCreatedHandler(appLogger, esIndexer),
+			OnProductUpdated:        eventhandler.NewOnProductUpdatedHandler(appLogger, esIndexer),
+			OnProductDeleted:        eventhandler.NewOnProductDeletedHandler(appLogger, esIndexer),
 			OnProductRequestCreated: eventhandler.NewOnProductRequestCreatedHandler(appLogger),
+			OnCheckoutCompleted:     eventhandler.NewOnCheckoutCompletedHandler(appLogger, productRepo, db),
 		},
 	}
 

@@ -14,7 +14,7 @@ type CheckoutCompleted struct {
 func NewCheckoutCompleted(productIDs []string) CheckoutCompleted {
 	return CheckoutCompleted{
 		BaseEvent: types.NewBaseEvent(
-			"checkout.completed",
+			"commerce.checkout.completed",
 			"commerce.events",
 			uuid.NewString(),
 		),

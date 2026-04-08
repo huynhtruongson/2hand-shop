@@ -158,6 +158,31 @@ services:
       - /workspace/internal/services/catalog/tmp
     ports:
       - "8082:8082"
+    
+  commerce-service:
+    image: commerce-service
+    build:
+      context: ../..
+      dockerfile: internal/services/commerce/Dockerfile.local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ../../internal/services/commerce/.env:/config/.env:ro
+      - ../../migrations/commerce:/migrations:ro
+        # Mount only commerce service
+      - ../../internal/services/commerce:/workspace/internal/services/commerce
+      # Mount shared pkg
+      - ../../internal/pkg:/workspace/internal/pkg
+      # Isolate the tmp dir so host and container don't share build artifacts
+      - /workspace/internal/services/commerce/tmp
+    ports:
+      - "8083:8083"
 
 volumes:
   postgres_data:

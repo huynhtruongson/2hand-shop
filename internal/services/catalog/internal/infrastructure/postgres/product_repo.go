@@ -23,7 +23,7 @@ type productModel struct {
 	Title       string                  `db:"title"`
 	Description string                  `db:"description"`
 	Brand       sql.NullString          `db:"brand"`
-	Price       string                  `db:"price"` // TEXT — customtypes.Price.String()
+	Price       customtypes.Price       `db:"price"` // TEXT — customtypes.Price.String()
 	Currency    string                  `db:"currency"`
 	Condition   string                  `db:"condition"`
 	Status      string                  `db:"status"`
@@ -40,7 +40,7 @@ func toProductModel(p *aggregate.Product) *productModel {
 		Title:       p.Title(),
 		Description: p.Description(),
 		Brand:       utils.StringPtrToNullString(p.Brand()),
-		Price:       p.Price().String(),
+		Price:       p.Price(),
 		Currency:    p.Currency().String(),
 		Condition:   p.Condition().String(),
 		Status:      p.Status().String(),
@@ -52,10 +52,6 @@ func toProductModel(p *aggregate.Product) *productModel {
 }
 
 func (m productModel) toAggregate() (*aggregate.Product, error) {
-	var price customtypes.Price
-	if err := price.Scan(m.Price); err != nil {
-		return nil, caterrors.ErrInternal.WithCause(err).WithInternal("productModel.toAggregate: scan price")
-	}
 
 	currency, err := valueobject.NewCurrencyFromString(m.Currency)
 	if err != nil {
@@ -77,7 +73,7 @@ func (m productModel) toAggregate() (*aggregate.Product, error) {
 		m.CategoryID,
 		m.Title,
 		m.Description,
-		price,
+		m.Price,
 		currency,
 		condition,
 		status,

@@ -139,9 +139,10 @@ func (h *CommerceHandler) CreateCheckoutSession(ctx *gin.Context) {
 	}
 
 	result, err := h.app.Commands.CreateCheckoutSession.Handle(ctx, command.CreateCheckoutSessionCommand{
-		UserID:     authUser.UserID(),
-		SuccessURL: req.SuccessURL,
-		CancelURL:  req.CancelURL,
+		UserID:          authUser.UserID(),
+		SuccessURL:      req.SuccessURL,
+		CancelURL:       req.CancelURL,
+		ShippingAddress: req.ShippingAddress,
 	})
 	if err != nil {
 		utils.ResponseError(ctx, err)

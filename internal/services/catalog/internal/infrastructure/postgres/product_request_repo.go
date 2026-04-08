@@ -24,7 +24,7 @@ type productRequestModel struct {
 	Title             string                  `db:"title"`
 	Description       string                  `db:"description"`
 	Brand             sql.NullString          `db:"brand"`
-	ExpectedPrice     string                  `db:"expected_price"` // TEXT — customtypes.Price.String()
+	ExpectedPrice     customtypes.Price       `db:"expected_price"` // TEXT — customtypes.Price.String()
 	Currency          string                  `db:"currency"`
 	Condition         string                  `db:"condition"`
 	Status            string                  `db:"status"`
@@ -45,7 +45,7 @@ func toProductRequestModel(pr *aggregate.ProductRequest) *productRequestModel {
 		Title:             pr.Title(),
 		Description:       pr.Description(),
 		Brand:             utils.StringPtrToNullString(pr.Brand()),
-		ExpectedPrice:     pr.ExpectedPrice().String(),
+		ExpectedPrice:     pr.ExpectedPrice(),
 		Currency:          pr.Currency().String(),
 		Condition:         pr.Condition().String(),
 		Status:            pr.Status().String(),
@@ -60,11 +60,6 @@ func toProductRequestModel(pr *aggregate.ProductRequest) *productRequestModel {
 }
 
 func (m productRequestModel) toAggregate() (*aggregate.ProductRequest, error) {
-	var price customtypes.Price
-	if err := price.Scan(m.ExpectedPrice); err != nil {
-		return nil, caterrors.ErrInternal.WithCause(err).WithInternal("productRequestModel.toAggregate: scan expected_price")
-	}
-
 	currency, err := valueobject.NewCurrencyFromString(m.Currency)
 	if err != nil {
 		return nil, caterrors.ErrInternal.WithCause(err).WithInternal("productRequestModel.toAggregate: parse currency")
@@ -86,7 +81,7 @@ func (m productRequestModel) toAggregate() (*aggregate.ProductRequest, error) {
 		m.CategoryID,
 		m.Title,
 		m.Description,
-		price,
+		m.ExpectedPrice,
 		currency,
 		utils.NullStringToStringPtr(m.Brand),
 		condition,

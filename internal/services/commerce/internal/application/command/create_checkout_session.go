@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/aggregate"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/entity"
@@ -15,9 +16,10 @@ import (
 
 // CreateCheckoutSessionCommand creates a pending Order and returns a Stripe Checkout Session URL.
 type CreateCheckoutSessionCommand struct {
-	UserID     string
-	SuccessURL string
-	CancelURL  string
+	UserID          string
+	SuccessURL      string
+	CancelURL       string
+	ShippingAddress *customtypes.Address
 }
 
 // CreateCheckoutSessionResponse is the result of CreateCheckoutSessionHandler.
@@ -81,7 +83,7 @@ func (h *CreateCheckoutSessionHandler) Handle(ctx context.Context, cmd CreateChe
 			cmd.UserID,
 			orderItems,
 			valueobject.CurrencyUSD,
-			nil,
+			cmd.ShippingAddress,
 		)
 		if err != nil {
 			return err

@@ -295,7 +295,7 @@ func TestProduct_MarkSold(t *testing.T) {
 		nil,
 	)
 
-	err := p.MarkSold("order-001")
+	err := p.MarkSold()
 	if err != nil {
 		t.Fatalf("MarkSold() unexpected error: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestProduct_MarkSold_InvalidTransition(t *testing.T) {
 				nil,
 			)
 
-			err := p.MarkSold("order-001")
+			err := p.MarkSold()
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -354,7 +354,7 @@ func TestProduct_Archive(t *testing.T) {
 		nil,
 	)
 
-	err := p.Archive("seller-001")
+	err := p.Archive()
 	if err != nil {
 		t.Fatalf("Archive() unexpected error: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestProduct_Archive_InvalidTransition(t *testing.T) {
 				nil,
 			)
 
-			err := p.Archive("seller-001")
+			err := p.Archive()
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}

@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -20,43 +19,38 @@ import (
 
 // orderModel mirrors the orders DB table.
 type orderModel struct {
-	ID              string          `db:"id"`
-	UserID          string          `db:"user_id"`
-	RefNumber       string          `db:"ref_number"`
-	SubtotalAmount  string          `db:"subtotal_amount"`
-	TotalAmount     string          `db:"total_amount"`
-	Currency        string          `db:"currency"`
-	Status          string          `db:"status"`
-	ShippingAddress sql.NullString  `db:"shipping_address"` // JSONB serialised as string
-	CreatedAt       time.Time       `db:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at"`
-	DeletedAt       sql.NullTime    `db:"deleted_at"`
+	ID              string               `db:"id"`
+	UserID          string               `db:"user_id"`
+	RefNumber       string               `db:"ref_number"`
+	SubtotalAmount  customtypes.Price    `db:"subtotal_amount"`
+	TotalAmount     customtypes.Price    `db:"total_amount"`
+	Currency        string               `db:"currency"`
+	Status          string               `db:"status"`
+	ShippingAddress *customtypes.Address `db:"shipping_address"` // JSONB serialised as string
+	CreatedAt       time.Time            `db:"created_at"`
+	UpdatedAt       time.Time            `db:"updated_at"`
+	DeletedAt       sql.NullTime         `db:"deleted_at"`
 }
 
 // orderItemModel mirrors the order_items DB table.
 type orderItemModel struct {
-	ID          string    `db:"id"`
-	OrderID     string    `db:"order_id"`
-	ProductID   string    `db:"product_id"`
-	ProductName string    `db:"product_name"`
-	Price       string    `db:"price"`
-	Currency    string    `db:"currency"`
-	CreatedAt   time.Time `db:"created_at"`
+	ID          string            `db:"id"`
+	OrderID     string            `db:"order_id"`
+	ProductID   string            `db:"product_id"`
+	ProductName string            `db:"product_name"`
+	Price       customtypes.Price `db:"price"`
+	Currency    string            `db:"currency"`
+	CreatedAt   time.Time         `db:"created_at"`
 }
 
 // toOrderItem reconstructs a domain OrderItem from a DB row.
 func (m orderItemModel) toOrderItem() (entity.OrderItem, error) {
-	var price customtypes.Price
-	if err := price.Scan(m.Price); err != nil {
-		return entity.OrderItem{}, carterrors.ErrInternal.WithCause(err).WithInternal("orderItemModel.toOrderItem: scan price")
-	}
-
 	currency, err := commercevo.NewCurrencyFromString(m.Currency)
 	if err != nil {
 		return entity.OrderItem{}, carterrors.ErrInternal.WithCause(err).WithInternal("orderItemModel.toOrderItem: parse currency")
 	}
 
-	return entity.NewOrderItem(m.ID, m.OrderID, m.ProductID, m.ProductName, price, currency), nil
+	return entity.NewOrderItem(m.ID, m.OrderID, m.ProductID, m.ProductName, m.Price, currency), nil
 }
 
 // toOrderItemModels converts a slice of domain OrderItems to DB models.
@@ -68,7 +62,7 @@ func toOrderItemModels(orderID string, items []entity.OrderItem) []orderItemMode
 			OrderID:     orderID,
 			ProductID:   item.ProductID(),
 			ProductName: item.ProductName(),
-			Price:       item.Price().String(),
+			Price:       item.Price(),
 			Currency:    item.Currency().String(),
 			CreatedAt:   item.CreatedAt(),
 		})
@@ -91,20 +85,11 @@ func (r *OrderRepo) Save(ctx context.Context, q postgressqlx.Querier, order *agg
 		INSERT INTO orders (id, user_id, ref_number, subtotal_amount, total_amount, currency, status, shipping_address, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
-	var shippingJSON []byte
-	if order.ShippingAddress() != nil {
-		var err error
-		shippingJSON, err = json.Marshal(order.ShippingAddress())
-		if err != nil {
-			return carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.Save: marshal shipping address")
-		}
-	}
-
 	_, err := q.ExecContext(ctx, insertOrder,
 		order.ID(), order.UserID(), order.RefNumber(),
 		order.SubtotalAmount().String(), order.TotalAmount().String(),
 		order.Currency().String(), order.Status().String(),
-		shippingJSON, order.CreatedAt(), order.UpdatedAt(),
+		order.ShippingAddress(), order.CreatedAt(), order.UpdatedAt(),
 	)
 	if err != nil {
 		return carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.Save: insert order")
@@ -129,7 +114,7 @@ func (r *OrderRepo) saveItems(ctx context.Context, q postgressqlx.Querier, order
 	orderIDs := make([]string, len(models))
 	productIDs := make([]string, len(models))
 	productNames := make([]string, len(models))
-	prices := make([]string, len(models))
+	prices := make([]customtypes.Price, len(models))
 	currencies := make([]string, len(models))
 	createdAts := make([]time.Time, len(models))
 	for i, m := range models {
@@ -168,19 +153,10 @@ func (r *OrderRepo) Update(ctx context.Context, q postgressqlx.Querier, order *a
 			updated_at = $7
 		WHERE id = $1 AND deleted_at IS NULL`
 
-	var shippingJSON []byte
-	if order.ShippingAddress() != nil {
-		var err error
-		shippingJSON, err = json.Marshal(order.ShippingAddress())
-		if err != nil {
-			return carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.Update: marshal shipping address")
-		}
-	}
-
 	result, err := q.ExecContext(ctx, updateOrder,
 		order.ID(), order.Status().String(),
 		order.SubtotalAmount().String(), order.TotalAmount().String(),
-		order.Currency().String(), shippingJSON, order.UpdatedAt(),
+		order.Currency().String(), order.ShippingAddress(), order.UpdatedAt(),
 	)
 	if err != nil {
 		return carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.Update: update order")
@@ -320,18 +296,9 @@ func (r *OrderRepo) modelToOrder(m orderModel, items []entity.OrderItem) (*aggre
 		return nil, carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.modelToOrder: parse status")
 	}
 
-	var shipping *commercevo.ShippingAddress
-	if m.ShippingAddress.Valid && m.ShippingAddress.String != "" {
-		var addr commercevo.ShippingAddress
-		if err := json.Unmarshal([]byte(m.ShippingAddress.String), &addr); err != nil {
-			return nil, carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.modelToOrder: unmarshal shipping address")
-		}
-		shipping = &addr
-	}
-
 	return aggregate.UnmarshalOrderFromDB(
 		m.ID, m.UserID, items, m.RefNumber,
-		subtotal, total, currency, status, shipping,
+		subtotal, total, currency, status, m.ShippingAddress,
 		m.CreatedAt, m.UpdatedAt,
 	), nil
 }
@@ -341,5 +308,5 @@ func itoa(i int) string {
 	if i == 1 {
 		return "1"
 	}
-	return string(rune('0'+i)) // simple 1-9, fine for pagination args
+	return string(rune('0' + i)) // simple 1-9, fine for pagination args
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/customtypes"
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/aggregate"
-	carterrors "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/entity"
+	carterrors "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/repository"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/valueobject"
 )
@@ -27,28 +27,23 @@ type cartModel struct {
 
 // cartItemModel mirrors the cart_items DB table.
 type cartItemModel struct {
-	ID          string `db:"id"`
-	CartID      string `db:"cart_id"`
-	ProductID   string `db:"product_id"`
-	ProductName string `db:"product_name"`
-	Price       string `db:"price"` // TEXT — customtypes.Price.String() serialization
-	Currency    string `db:"currency"`
-	AddedAt     time.Time `db:"added_at"`
+	ID          string            `db:"id"`
+	CartID      string            `db:"cart_id"`
+	ProductID   string            `db:"product_id"`
+	ProductName string            `db:"product_name"`
+	Price       customtypes.Price `db:"price"`
+	Currency    string            `db:"currency"`
+	AddedAt     time.Time         `db:"added_at"`
 }
 
 // toCartItem reconstructs a domain CartItem from a DB row.
 func (m cartItemModel) toCartItem() (entity.CartItem, error) {
-	var price customtypes.Price
-	if err := price.Scan(m.Price); err != nil {
-		return entity.CartItem{}, carterrors.ErrInternal.WithCause(err).WithInternal("cartItemModel.toCartItem: scan price")
-	}
-
 	currency, err := valueobject.NewCurrencyFromString(m.Currency)
 	if err != nil {
 		return entity.CartItem{}, carterrors.ErrInternal.WithCause(err).WithInternal("cartItemModel.toCartItem: parse currency")
 	}
 
-	return entity.NewCartItem(m.ID, m.CartID, m.ProductID, m.ProductName, price, currency), nil
+	return entity.NewCartItem(m.ID, m.CartID, m.ProductID, m.ProductName, m.Price, currency), nil
 }
 
 // toCartItemModels converts a slice of domain CartItems to DB models.
@@ -60,7 +55,7 @@ func toCartItemModels(cartID string, items []entity.CartItem) []cartItemModel {
 			CartID:      cartID,
 			ProductID:   item.ProductID(),
 			ProductName: item.ProductName(),
-			Price:       item.Price().String(),
+			Price:       item.Price(),
 			Currency:    item.Currency().String(),
 			AddedAt:     item.AddedAt(),
 		})
@@ -153,7 +148,7 @@ func (r *CartRepo) Save(ctx context.Context, q postgressqlx.Querier, cart *aggre
 	cartIDs := make([]string, len(models))
 	productIDs := make([]string, len(models))
 	productNames := make([]string, len(models))
-	prices := make([]string, len(models))
+	prices := make([]customtypes.Price, len(models))
 	currencies := make([]string, len(models))
 	addedAts := make([]time.Time, len(models))
 	for i, m := range models {
@@ -191,4 +186,3 @@ func (r *CartRepo) Delete(ctx context.Context, q postgressqlx.Querier, userID st
 	}
 	return nil
 }
-

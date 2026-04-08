@@ -20,7 +20,7 @@ type Order struct {
 	totalAmount     customtypes.Price
 	currency        commercevo.Currency
 	status          commercevo.OrderStatus
-	shippingAddress *commercevo.ShippingAddress
+	shippingAddress *customtypes.Address
 	createdAt       time.Time
 	updatedAt       time.Time
 	deletedAt       *time.Time
@@ -30,7 +30,7 @@ func NewOrder(
 	id, userID string,
 	items []entity.OrderItem,
 	currency commercevo.Currency,
-	shippingAddress *commercevo.ShippingAddress,
+	shippingAddress *customtypes.Address,
 ) (*Order, error) {
 	subtotal := customtypes.FromCents(0)
 	for _, item := range items {
@@ -58,17 +58,17 @@ func NewOrder(
 
 // ── Getters ───────────────────────────────────────────────────────────────────
 
-func (o *Order) ID() string                                   { return o.id }
-func (o *Order) UserID() string                               { return o.userID }
-func (o *Order) RefNumber() string                            { return o.refNumber }
-func (o *Order) Items() []entity.OrderItem                    { return o.items }
-func (o *Order) SubtotalAmount() customtypes.Price            { return o.subtotalAmount }
-func (o *Order) TotalAmount() customtypes.Price               { return o.totalAmount }
-func (o *Order) Currency() commercevo.Currency                { return o.currency }
-func (o *Order) Status() commercevo.OrderStatus               { return o.status }
-func (o *Order) ShippingAddress() *commercevo.ShippingAddress { return o.shippingAddress }
-func (o *Order) CreatedAt() time.Time                         { return o.createdAt }
-func (o *Order) UpdatedAt() time.Time                         { return o.updatedAt }
+func (o *Order) ID() string                            { return o.id }
+func (o *Order) UserID() string                        { return o.userID }
+func (o *Order) RefNumber() string                     { return o.refNumber }
+func (o *Order) Items() []entity.OrderItem             { return o.items }
+func (o *Order) SubtotalAmount() customtypes.Price     { return o.subtotalAmount }
+func (o *Order) TotalAmount() customtypes.Price        { return o.totalAmount }
+func (o *Order) Currency() commercevo.Currency         { return o.currency }
+func (o *Order) Status() commercevo.OrderStatus        { return o.status }
+func (o *Order) ShippingAddress() *customtypes.Address { return o.shippingAddress }
+func (o *Order) CreatedAt() time.Time                  { return o.createdAt }
+func (o *Order) UpdatedAt() time.Time                  { return o.updatedAt }
 
 // ── Status transitions ───────────────────────────────────────────────────────
 
@@ -129,7 +129,7 @@ func UnmarshalOrderFromDB(
 	totalAmount customtypes.Price,
 	currency commercevo.Currency,
 	status commercevo.OrderStatus,
-	shippingAddress *commercevo.ShippingAddress,
+	shippingAddress *customtypes.Address,
 	createdAt, updatedAt time.Time,
 ) *Order {
 	return &Order{

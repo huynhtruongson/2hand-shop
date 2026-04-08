@@ -86,7 +86,7 @@ func (p *Product) Publish() error {
 	return nil
 }
 
-func (p *Product) MarkSold(orderID string) error {
+func (p *Product) MarkSold() error {
 	if !p.status.CanTransitionTo(valueobject.ProductStatusSold) {
 		return caterrors.ErrProductInvalidStatusTransition.
 			WithMeta("current_status", p.status.String()).
@@ -97,7 +97,7 @@ func (p *Product) MarkSold(orderID string) error {
 	return nil
 }
 
-func (p *Product) Archive(actorID string) error {
+func (p *Product) Archive() error {
 	if !p.status.CanTransitionTo(valueobject.ProductStatusArchived) {
 		return caterrors.ErrProductInvalidStatusTransition.
 			WithMeta("current_status", p.status.String()).
