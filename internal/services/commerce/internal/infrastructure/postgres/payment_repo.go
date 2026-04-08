@@ -17,24 +17,20 @@ import (
 
 // paymentModel mirrors the payments DB table.
 type paymentModel struct {
-	ID              string       `db:"id"`
-	OrderID         string       `db:"order_id"`
-	StripeSessionID sql.NullString `db:"stripe_session_id"`
-	RefNumber       string       `db:"ref_number"`
-	TotalAmount     string       `db:"total_amount"`
-	Currency        string       `db:"currency"`
-	Status          string       `db:"status"`
-	CreatedAt       sql.NullTime `db:"created_at"`
-	UpdatedAt       sql.NullTime `db:"updated_at"`
-	DeletedAt       sql.NullTime `db:"deleted_at"`
+	ID              string            `db:"id"`
+	OrderID         string            `db:"order_id"`
+	StripeSessionID sql.NullString    `db:"stripe_session_id"`
+	RefNumber       string            `db:"ref_number"`
+	TotalAmount     customtypes.Price `db:"total_amount"`
+	Currency        string            `db:"currency"`
+	Status          string            `db:"status"`
+	CreatedAt       sql.NullTime      `db:"created_at"`
+	UpdatedAt       sql.NullTime      `db:"updated_at"`
+	DeletedAt       sql.NullTime      `db:"deleted_at"`
 }
 
 // toPayment reconstructs a domain Payment from a DB row.
 func (m paymentModel) toPayment() (*aggregate.Payment, error) {
-	var amount customtypes.Price
-	if err := amount.Scan(m.TotalAmount); err != nil {
-		return nil, carterrors.ErrInternal.WithCause(err).WithInternal("paymentModel.toPayment: scan amount")
-	}
 
 	currency, err := commercevo.NewCurrencyFromString(m.Currency)
 	if err != nil {
@@ -57,7 +53,7 @@ func (m paymentModel) toPayment() (*aggregate.Payment, error) {
 	return aggregate.UnmarshalPaymentFromDB(
 		m.ID, m.OrderID,
 		m.StripeSessionID.String,
-		m.RefNumber, amount, currency, status,
+		m.RefNumber, m.TotalAmount, currency, status,
 		createdAt.Time, updatedAt.Time,
 	), nil
 }
@@ -68,7 +64,7 @@ func toPaymentModel(p *aggregate.Payment) paymentModel {
 		ID:          p.ID(),
 		OrderID:     p.OrderID(),
 		RefNumber:   p.RefNumber(),
-		TotalAmount: p.Amount().String(),
+		TotalAmount: p.Amount(),
 		Currency:    p.Currency().String(),
 		Status:      p.Status().String(),
 	}
