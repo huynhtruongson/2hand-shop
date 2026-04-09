@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -203,9 +204,20 @@ func (h *CommerceHandler) HandleCheckoutWebhook(ctx *gin.Context) {
 
 	switch event.Type {
 	case "checkout.session.completed":
-		sess, ok := event.Data.Object["object"].(*stripe.CheckoutSession)
 		if !ok {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse checkout session"})
+			return
+		}
+
+		data, err := json.Marshal(event.Data.Object)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal checkout session"})
+			return
+		}
+
+		var sess stripe.CheckoutSession
+		if err := json.Unmarshal(data, &sess); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "failed to unmarshal checkout session"})
 			return
 		}
 

@@ -147,7 +147,7 @@ func (r *PaymentRepo) Update(ctx context.Context, q postgressqlx.Querier, paymen
 // GetByID retrieves a payment by its aggregate ID.
 func (r *PaymentRepo) GetByID(ctx context.Context, q postgressqlx.Querier, paymentID string) (*aggregate.Payment, error) {
 	const query = `
-		SELECT id, order_id, stripe_intent_id, stripe_session_id, ref_number, total_amount, currency, status, created_at, updated_at
+		SELECT id, order_id, stripe_session_id, ref_number, total_amount, currency, status, created_at, updated_at
 		FROM payments
 		WHERE id = $1 AND deleted_at IS NULL
 		LIMIT 1`
@@ -166,7 +166,7 @@ func (r *PaymentRepo) GetByID(ctx context.Context, q postgressqlx.Querier, payme
 // GetByOrderID retrieves a payment by its associated order ID.
 func (r *PaymentRepo) GetByOrderID(ctx context.Context, q postgressqlx.Querier, orderID string) (*aggregate.Payment, error) {
 	const query = `
-		SELECT id, order_id, stripe_intent_id, stripe_session_id, ref_number, total_amount, currency, status, created_at, updated_at
+		SELECT id, order_id, stripe_session_id, ref_number, total_amount, currency, status, created_at, updated_at
 		FROM payments
 		WHERE order_id = $1 AND deleted_at IS NULL
 		LIMIT 1`
@@ -185,7 +185,7 @@ func (r *PaymentRepo) GetByOrderID(ctx context.Context, q postgressqlx.Querier, 
 // GetByStripeSessionID retrieves a payment by its Stripe Checkout Session ID.
 func (r *PaymentRepo) GetByStripeSessionID(ctx context.Context, q postgressqlx.Querier, stripeSessionID string) (*aggregate.Payment, error) {
 	const query = `
-		SELECT id, order_id, stripe_intent_id, stripe_session_id, ref_number, total_amount, currency, status, created_at, updated_at
+		SELECT id, order_id, stripe_session_id, ref_number, total_amount, currency, status, created_at, updated_at
 		FROM payments
 		WHERE stripe_session_id = $1 AND deleted_at IS NULL
 		LIMIT 1`
@@ -224,7 +224,7 @@ func (r *PaymentRepo) List(ctx context.Context, q postgressqlx.Querier, filter r
 	}
 
 	selectQuery := `
-		SELECT id, order_id, stripe_intent_id, stripe_session_id, ref_number, total_amount, currency, status, created_at, updated_at
+		SELECT id, order_id, stripe_session_id, ref_number, total_amount, currency, status, created_at, updated_at
 		FROM payments ` + where + " ORDER BY created_at DESC " + page.SQL()
 	args = append(args, page.Limit, page.Offset)
 

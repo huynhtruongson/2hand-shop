@@ -7,6 +7,7 @@ import (
 
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/cqrs"
 	errpkg "github.com/huynhtruongson/2hand-shop/internal/pkg/errors"
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/postgressqlx"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/aggregate"
 	carterrors "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/domain/repository"
@@ -27,18 +28,19 @@ type GetCartResponse struct {
 
 // getCartHandler implements GetCartHandler.
 type getCartHandler struct {
+	db       postgressqlx.DB
 	cartRepo repository.CartRepository
 }
 
 // NewGetCartHandler constructs a GetCartHandler.
-func NewGetCartHandler(cartRepo repository.CartRepository) GetCartHandler {
-	return &getCartHandler{cartRepo: cartRepo}
+func NewGetCartHandler(cartRepo repository.CartRepository, db postgressqlx.DB) GetCartHandler {
+	return &getCartHandler{cartRepo: cartRepo, db: db}
 }
 
 // Handle processes a GetCartQuery, returning the user's cart.
 // If no cart exists for the user, an empty in-memory cart is returned (200).
 func (h *getCartHandler) Handle(ctx context.Context, q GetCartQuery) (GetCartResponse, error) {
-	cart, err := h.cartRepo.GetByUserID(ctx, nil, q.UserID)
+	cart, err := h.cartRepo.GetByUserID(ctx, h.db, q.UserID)
 	if err != nil {
 		if errpkg.IsKind(err, errpkg.KindNotFound) {
 			// No cart exists — return an empty in-memory cart (not persisted).

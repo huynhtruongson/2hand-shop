@@ -278,14 +278,6 @@ func (r *OrderRepo) List(ctx context.Context, q postgressqlx.Querier, filter rep
 
 // modelToOrder reconstructs a domain Order from a DB model.
 func (r *OrderRepo) modelToOrder(m orderModel, items []entity.OrderItem) (*aggregate.Order, error) {
-	var subtotal, total customtypes.Price
-	if err := subtotal.Scan(m.SubtotalAmount); err != nil {
-		return nil, carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.modelToOrder: scan subtotal")
-	}
-	if err := total.Scan(m.TotalAmount); err != nil {
-		return nil, carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.modelToOrder: scan total")
-	}
-
 	currency, err := commercevo.NewCurrencyFromString(m.Currency)
 	if err != nil {
 		return nil, carterrors.ErrInternal.WithCause(err).WithInternal("OrderRepo.modelToOrder: parse currency")
@@ -298,7 +290,7 @@ func (r *OrderRepo) modelToOrder(m orderModel, items []entity.OrderItem) (*aggre
 
 	return aggregate.UnmarshalOrderFromDB(
 		m.ID, m.UserID, items, m.RefNumber,
-		subtotal, total, currency, status, m.ShippingAddress,
+		m.SubtotalAmount, m.TotalAmount, currency, status, m.ShippingAddress,
 		m.CreatedAt, m.UpdatedAt,
 	), nil
 }

@@ -103,7 +103,7 @@ func NewApp() *App {
 			OnProductUpdated:        eventhandler.NewOnProductUpdatedHandler(appLogger, esIndexer),
 			OnProductDeleted:        eventhandler.NewOnProductDeletedHandler(appLogger, esIndexer),
 			OnProductRequestCreated: eventhandler.NewOnProductRequestCreatedHandler(appLogger),
-			OnCheckoutCompleted:     eventhandler.NewOnCheckoutCompletedHandler(appLogger, productRepo, db),
+			OnCheckoutCompleted:     eventhandler.NewOnCheckoutCompletedHandler(appLogger, productRepo, db, esIndexer),
 		},
 	}
 

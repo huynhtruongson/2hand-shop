@@ -47,17 +47,17 @@ func (c Currency) IsValid() bool {
 // It returns an error if the value is not a recognised currency.
 func NewCurrencyFromString(value string) (Currency, error) {
 	switch value {
-	case "USD":
+	case "USD", "usd":
 		return CurrencyUSD, nil
-	case "EUR":
+	case "EUR", "eur":
 		return CurrencyEUR, nil
-	case "GBP":
+	case "GBP", "gbp":
 		return CurrencyGBP, nil
-	case "VND":
+	case "VND", "vnd":
 		return CurrencyVND, nil
-	case "JPY":
+	case "JPY", "jpy":
 		return CurrencyJPY, nil
-	case "KRW":
+	case "KRW", "krw":
 		return CurrencyKRW, nil
 	}
 	return Currency{}, errors.New("invalid currency")

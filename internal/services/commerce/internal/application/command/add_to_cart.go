@@ -82,7 +82,6 @@ func (h *addToCartHandler) Handle(ctx context.Context, cmd AddToCartCommand) (Ad
 
 		// AddItem upserts by ProductID (existing items are replaced).
 		cart.AddItem(item)
-
 		// Persist the cart and its items.
 		return h.cartRepo.Save(ctx, tx, cart)
 	}); err != nil {

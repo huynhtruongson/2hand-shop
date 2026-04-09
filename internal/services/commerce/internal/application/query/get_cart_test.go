@@ -127,7 +127,7 @@ func TestGetCartHandler(t *testing.T) {
 			t.Parallel()
 
 			repo := tc.setup(t)
-			handler := NewGetCartHandler(repo)
+			handler := NewGetCartHandler(repo, nil)
 
 			resp, err := handler.Handle(context.Background(), tc.query)
 

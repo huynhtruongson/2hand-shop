@@ -19,9 +19,10 @@ type CheckoutCompletedPayload struct {
 }
 
 type onCheckoutCompletedHandler struct {
-	logger      logger.Logger
-	productRepo repository.ProductRepository
-	db          postgressqlx.DB
+	logger         logger.Logger
+	productRepo    repository.ProductRepository
+	db             postgressqlx.DB
+	productIndexer productIndexer
 }
 
 // NewOnCheckoutCompletedHandler constructs the handler.
@@ -29,11 +30,13 @@ func NewOnCheckoutCompletedHandler(
 	logger logger.Logger,
 	productRepo repository.ProductRepository,
 	db postgressqlx.DB,
+	productIndexer productIndexer,
 ) OnCheckoutCompletedHandler {
 	return &onCheckoutCompletedHandler{
-		logger:      logger,
-		productRepo: productRepo,
-		db:          db,
+		logger:         logger,
+		productRepo:    productRepo,
+		db:             db,
+		productIndexer: productIndexer,
 	}
 }
 
@@ -54,7 +57,6 @@ func (h *onCheckoutCompletedHandler) Handle(ctx context.Context, ec types.EventC
 				continue
 			}
 
-			// orderID intentionally not stored — extend when commerce.checkout.completed carries it
 			if err := product.MarkSold(); err != nil {
 				h.logger.Warn("failed to mark product sold", "product_id", productID, "err", err)
 				continue
@@ -62,6 +64,10 @@ func (h *onCheckoutCompletedHandler) Handle(ctx context.Context, ec types.EventC
 
 			if err := h.productRepo.Update(ctx, tx, product); err != nil {
 				return err
+			}
+
+			if err := h.productIndexer.DeleteProduct(ctx, productID); err != nil {
+				h.logger.Warn("failed to index product in elasticsearch", "product_id", productID, "err", err)
 			}
 		}
 		return nil

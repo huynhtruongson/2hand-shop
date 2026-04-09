@@ -18,8 +18,8 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/application"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/application/command"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/application/query"
-	mqrabbitmq "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/infrastructure/rabbitmq"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/infrastructure/postgres"
+	mqrabbitmq "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/infrastructure/rabbitmq"
 	"github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/infrastructure/stripe"
 	appHttp "github.com/huynhtruongson/2hand-shop/internal/services/commerce/internal/transports/http"
 )
@@ -79,10 +79,10 @@ func NewApp() *App {
 			AddToCart:             command.NewAddToCartHandler(cartRepo, db),
 			RemoveFromCart:        command.NewRemoveFromCartHandler(cartRepo, db),
 			CreateCheckoutSession: command.NewCreateCheckoutSessionHandler(cartRepo, orderRepo, checkoutProv, db),
-			CompleteCheckout: command.NewCompleteCheckoutHandler(cartRepo, orderRepo, paymentRepo, db, mgr.Producer(), appLogger),
+			CompleteCheckout:      command.NewCompleteCheckoutHandler(cartRepo, orderRepo, paymentRepo, db, mgr.Producer(), appLogger),
 		},
 		Queries: application.Queries{
-			GetCart:            query.NewGetCartHandler(cartRepo),
+			GetCart:            query.NewGetCartHandler(cartRepo, db),
 			GetCheckoutSession: query.NewGetCheckoutSessionHandler(checkoutProv),
 		},
 	}
