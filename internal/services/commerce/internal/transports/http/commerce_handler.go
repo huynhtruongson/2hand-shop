@@ -38,7 +38,7 @@ func (h *CommerceHandler) AddToCart(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.app.Commands.AddToCart.Handle(ctx, command.AddToCartCommand{
+	result, err := h.app.Commands.AddToCart.Handle(ctx.Request.Context(), command.AddToCartCommand{
 		UserID:      authUser.UserID(),
 		ProductID:   req.ProductID,
 		ProductName: req.ProductName,
@@ -64,7 +64,7 @@ func (h *CommerceHandler) GetCart(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.app.Queries.GetCart.Handle(ctx, query.GetCartQuery{
+	result, err := h.app.Queries.GetCart.Handle(ctx.Request.Context(), query.GetCartQuery{
 		UserID: authUser.UserID(),
 	})
 	if err != nil {
@@ -110,7 +110,7 @@ func (h *CommerceHandler) RemoveFromCart(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.app.Commands.RemoveFromCart.Handle(ctx, command.RemoveFromCartCommand{
+	result, err := h.app.Commands.RemoveFromCart.Handle(ctx.Request.Context(), command.RemoveFromCartCommand{
 		UserID:    authUser.UserID(),
 		ProductID: req.ProductID,
 	})
@@ -139,7 +139,7 @@ func (h *CommerceHandler) CreateCheckoutSession(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.app.Commands.CreateCheckoutSession.Handle(ctx, command.CreateCheckoutSessionCommand{
+	result, err := h.app.Commands.CreateCheckoutSession.Handle(ctx.Request.Context(), command.CreateCheckoutSessionCommand{
 		UserID:          authUser.UserID(),
 		SuccessURL:      req.SuccessURL,
 		CancelURL:       req.CancelURL,
@@ -172,7 +172,7 @@ func (h *CommerceHandler) GetCheckoutSession(ctx *gin.Context) {
 
 	_ = authUser // reserved for future user-level validation
 
-	result, err := h.app.Queries.GetCheckoutSession.Handle(ctx, query.GetCheckoutSessionQuery{
+	result, err := h.app.Queries.GetCheckoutSession.Handle(ctx.Request.Context(), query.GetCheckoutSessionQuery{
 		SessionID: sessionID,
 	})
 	if err != nil {
@@ -242,7 +242,7 @@ func (h *CommerceHandler) HandleCheckoutWebhook(ctx *gin.Context) {
 			Currency:        string(sess.Currency),
 		}
 
-		if err := h.app.Commands.CompleteCheckout.Handle(ctx, cmd); err != nil {
+		if err := h.app.Commands.CompleteCheckout.Handle(ctx.Request.Context(), cmd); err != nil {
 			utils.ResponseError(ctx, err)
 		}
 

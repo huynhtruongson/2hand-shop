@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/huynhtruongson/2hand-shop/internal/pkg/logger"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -47,16 +48,21 @@ type Config struct {
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
 	ConnMaxIdleTime time.Duration
+	EnableLogging   bool
 }
 
 type sqlxDB struct {
 	*sqlx.DB
 }
 
-func NewDB(cfg Config) (*sqlxDB, error) {
+func NewDB(cfg Config, logger logger.Logger) (*sqlxDB, error) {
+	if cfg.EnableLogging && logger != nil {
+		WrapDriver(logger)
+	}
+
 	dsn := buildDSN(cfg)
 
-	db, err := sqlx.Connect("postgres", dsn)
+	db, err := sqlx.Connect("postgres+hooks", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("db: open connection: %w", err)
 	}

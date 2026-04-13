@@ -23,7 +23,7 @@ func (ah *AuthHandler) SignUpHandler(ctx *gin.Context) {
 		utils.ResponseError(ctx, err)
 		return
 	}
-	result, err := ah.AuthService.SignUp(ctx, req.ToSignUpParams())
+	result, err := ah.AuthService.SignUp(ctx.Request.Context(), req.ToSignUpParams())
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -41,7 +41,7 @@ func (ah *AuthHandler) SignInHandler(ctx *gin.Context) {
 		utils.ResponseError(ctx, err)
 		return
 	}
-	result, err := ah.AuthService.SignIn(ctx, req.Email, req.Password)
+	result, err := ah.AuthService.SignIn(ctx.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -60,7 +60,7 @@ func (ah *AuthHandler) ConfirmAccountHandler(ctx *gin.Context) {
 		utils.ResponseError(ctx, err)
 		return
 	}
-	err := ah.AuthService.ConfirmAccount(ctx, req.Email, req.Code)
+	err := ah.AuthService.ConfirmAccount(ctx.Request.Context(), req.Email, req.Code)
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return

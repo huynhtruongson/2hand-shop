@@ -48,13 +48,14 @@ func NewApp() *App {
 	})
 
 	db, err := postgressqlx.NewDB(postgressqlx.Config{
-		Host:     cfg.Postgres.Host,
-		Port:     cfg.Postgres.Port,
-		User:     cfg.Postgres.User,
-		Password: cfg.Postgres.Password,
-		Name:     cfg.Postgres.DBName,
-		SSLMode:  cfg.Postgres.SSLMode,
-	})
+		Host:          cfg.Postgres.Host,
+		Port:          cfg.Postgres.Port,
+		User:          cfg.Postgres.User,
+		Password:      cfg.Postgres.Password,
+		Name:          cfg.Postgres.DBName,
+		SSLMode:       cfg.Postgres.SSLMode,
+		EnableLogging: true,
+	}, appLogger)
 	if err != nil {
 		appLogger.Fatal("failed to connect postgres", "error", err)
 	}

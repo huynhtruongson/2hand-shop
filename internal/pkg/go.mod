@@ -18,6 +18,8 @@ require (
 	github.com/stretchr/testify v1.11.1
 )
 
+require github.com/qustavo/sqlhooks/v2 v2.1.0 // indirect
+
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect

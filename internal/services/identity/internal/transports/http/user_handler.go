@@ -33,7 +33,7 @@ func (h *UserHandler) UpdateProfileHandler(ctx *gin.Context) {
 		return
 	}
 
-	_, err := h.app.Commands.UpdateProfile.Handle(ctx, command.UpdateProfile{
+	_, err := h.app.Commands.UpdateProfile.Handle(ctx.Request.Context(), command.UpdateProfile{
 		UserID: authUser.UserID(),
 		Name:   req.Name,
 		Gender: req.Gender,
@@ -53,7 +53,7 @@ func (h *UserHandler) GetProfileHandler(ctx *gin.Context) {
 		return
 	}
 
-	user, err := h.app.Queries.Profile.Handle(ctx, query.Profile{
+	user, err := h.app.Queries.Profile.Handle(ctx.Request.Context(), query.Profile{
 		ID: authUser.UserID(),
 	})
 	if err != nil {

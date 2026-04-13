@@ -26,7 +26,7 @@ func (h *CatalogHandler) CreateProductHandler(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.app.Commands.CreateProduct.Handle(ctx, req.ToCreateProductCommand())
+	result, err := h.app.Commands.CreateProduct.Handle(ctx.Request.Context(), req.ToCreateProductCommand())
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -47,7 +47,7 @@ func (h *CatalogHandler) ListProductHandler(ctx *gin.Context) {
 	if ok {
 		query.User = &authUser
 	}
-	result, err := h.app.Queries.ListProduct.Handle(ctx, query)
+	result, err := h.app.Queries.ListProduct.Handle(ctx.Request.Context(), query)
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -64,7 +64,7 @@ func (h *CatalogHandler) SearchProductsHandler(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.app.Queries.SearchProducts.Handle(ctx, req.ToSearchProductsQuery())
+	result, err := h.app.Queries.SearchProducts.Handle(ctx.Request.Context(), req.ToSearchProductsQuery())
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -80,7 +80,7 @@ func (h *CatalogHandler) GetProductHandler(ctx *gin.Context) {
 		return
 	}
 
-	product, err := h.app.Queries.GetProduct.Handle(ctx, req.ToGetProductQuery())
+	product, err := h.app.Queries.GetProduct.Handle(ctx.Request.Context(), req.ToGetProductQuery())
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -102,7 +102,7 @@ func (h *CatalogHandler) UpdateProductHandler(ctx *gin.Context) {
 	}
 	req.ProductID = reqID.ProductID
 
-	_, err := h.app.Commands.UpdateProduct.Handle(ctx, req.ToUpdateProductCommand())
+	_, err := h.app.Commands.UpdateProduct.Handle(ctx.Request.Context(), req.ToUpdateProductCommand())
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -126,7 +126,7 @@ func (h *CatalogHandler) CreateProductRequestHandler(ctx *gin.Context) {
 	}
 	req.SellerID = authUser.UserID()
 
-	result, err := h.app.Commands.CreateProductRequest.Handle(ctx, req.ToCreateProductRequestCommand())
+	result, err := h.app.Commands.CreateProductRequest.Handle(ctx.Request.Context(), req.ToCreateProductRequestCommand())
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -142,7 +142,7 @@ func (h *CatalogHandler) PublishProductHandler(ctx *gin.Context) {
 		return
 	}
 
-	_, err := h.app.Commands.PublishProduct.Handle(ctx, command.PublishProductCommand{
+	_, err := h.app.Commands.PublishProduct.Handle(ctx.Request.Context(), command.PublishProductCommand{
 		ProductID: reqID.ProductID,
 	})
 	if err != nil {
@@ -160,7 +160,7 @@ func (h *CatalogHandler) DeleteProductHandler(ctx *gin.Context) {
 		return
 	}
 
-	_, err := h.app.Commands.DeleteProduct.Handle(ctx, command.DeleteProductCommand{ProductID: reqID.ProductID})
+	_, err := h.app.Commands.DeleteProduct.Handle(ctx.Request.Context(), command.DeleteProductCommand{ProductID: reqID.ProductID})
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -186,7 +186,7 @@ func (h *CatalogHandler) ListProductRequestsHandler(ctx *gin.Context) {
 	}
 	query.User = &authUser
 
-	result, err := h.app.Queries.ListProductRequests.Handle(ctx, query)
+	result, err := h.app.Queries.ListProductRequests.Handle(ctx.Request.Context(), query)
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -213,7 +213,7 @@ func (h *CatalogHandler) UpdateProductRequestHandler(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.app.Commands.UpdateProductRequest.Handle(ctx,
+	result, err := h.app.Commands.UpdateProductRequest.Handle(ctx.Request.Context(),
 		req.ToUpdateProductRequestCommand(reqID.ProductID, authUser.UserID()))
 	if err != nil {
 		utils.ResponseError(ctx, err)
@@ -236,7 +236,7 @@ func (h *CatalogHandler) DeleteProductRequestHandler(ctx *gin.Context) {
 		return
 	}
 
-	_, err := h.app.Commands.DeleteProductRequest.Handle(ctx, command.DeleteProductRequestCommand{
+	_, err := h.app.Commands.DeleteProductRequest.Handle(ctx.Request.Context(), command.DeleteProductRequestCommand{
 		ProductRequestID: reqID.ProductID,
 		SellerID:         authUser.UserID(),
 	})
@@ -255,7 +255,7 @@ func (h *CatalogHandler) AcceptProductRequestHandler(ctx *gin.Context) {
 		return
 	}
 
-	result, err := h.app.Commands.AcceptProductRequest.Handle(ctx, command.AcceptProductRequestCommand{
+	result, err := h.app.Commands.AcceptProductRequest.Handle(ctx.Request.Context(), command.AcceptProductRequestCommand{
 		ProductRequestID: reqID.ProductRequestID,
 	})
 	if err != nil {
@@ -279,7 +279,7 @@ func (h *CatalogHandler) RejectProductRequestHandler(ctx *gin.Context) {
 		return
 	}
 
-	_, err := h.app.Commands.RejectProductRequest.Handle(ctx, command.RejectProductRequestCommand{
+	_, err := h.app.Commands.RejectProductRequest.Handle(ctx.Request.Context(), command.RejectProductRequestCommand{
 		ProductRequestID:  reqID.ProductRequestID,
 		AdminRejectReason: reqBody.AdminRejectReason,
 	})

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/rs/xid"
 )
@@ -19,18 +21,25 @@ func GinRequestID() gin.HandlerFunc {
 			requestID = xid.New().String()
 		}
 
-		// Make it available to all downstream handlers and middleware
-		c.Set(RequestIDKey, requestID)
+		ctx := context.WithValue(c.Request.Context(), "reqid", requestID)
+		c.Request = c.Request.WithContext(ctx)
 
-		// Echo it back so clients can correlate with their own logs
+		c.Set(RequestIDKey, requestID)
 		c.Header(RequestIDHeader, requestID)
 
 		c.Next()
 	}
 }
 
-func GetRequestID(c *gin.Context) string {
+func getRequestID(c *gin.Context) string {
 	id, _ := c.Get(RequestIDKey)
 	requestID, _ := id.(string)
 	return requestID
+}
+
+func GetRequestIDFromCtx(ctx context.Context) string {
+	if id, ok := ctx.Value("reqid").(string); ok {
+		return id
+	}
+	return ""
 }
