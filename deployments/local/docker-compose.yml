@@ -64,52 +64,37 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  # es-setup:
-  #   image: curlimages/curl:latest
-  #   restart: "no"
-  #   depends_on:
-  #     elasticsearch:
-  #       condition: service_healthy
-  #   command: >
-  #     curl -X POST -u elastic:${ELASTIC_PASSWORD:-elastic}
-  #     -H "Content-Type: application/json"
-  #     http://elasticsearch:9200/_security/user/kibana_system/_password
-  #     -d "{\"password\": \"${KIBANA_PASSWORD:-kibana}\"}"
-  # kibana:
-  #   image: docker.elastic.co/kibana/kibana:9.3.2
-  #   container_name: kibana
-  #   ports:
-  #     - "5601:5601"
-  #   environment:
-  #     ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-  #     ELASTICSEARCH_USERNAME: kibana_system
-  #     ELASTICSEARCH_PASSWORD: kibana
-  #   depends_on:
-  #     elasticsearch:
-  #       condition: service_healthy
 
-  # ===========================================================================
-  # Tyk Gateway (file-based, no Dashboard)
-  # API definitions are loaded from ./gateway/apps/ at startup.
-  # To reload after changing app configs:
-  #   docker compose restart tyk-gateway
-  # ===========================================================================
-
-  tyk-gateway:
-    image: tykio/tyk-gateway:latest
-    restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
-      identity-service:
-        condition: service_started
-    environment:
-      TYK_GW_SECRET: ${TYK_SECRET:-tyk-secret}
-    volumes:
-      - ../../gateway/tyk.conf:/opt/tyk-gateway/tyk.conf:ro
-      - ../../gateway/apps:/opt/tyk-gateway/apps:ro
+# ─── Traefik Reverse Proxy ───────────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik
+    command:
+      - "--api.insecure=true"                          # Enable dashboard (dev only)
+      - "--providers.docker=true"                      # Auto-discover Docker services
+      - "--providers.docker.exposedbydefault=false"    # Only expose labeled services
+      - "--entrypoints.web.address=:80"                # HTTP entrypoint
+      - "--log.level=DEBUG"
     ports:
-      - "8080:8080"
+      - "80:80"       # HTTP
+      - "8080:8080"   # Traefik dashboard → http://localhost:8080
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro" # Read Docker socket
+  # tyk-gateway:
+  #   image: tykio/tyk-gateway:latest
+  #   restart: unless-stopped
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #     identity-service:
+  #       condition: service_started
+  #   environment:
+  #     TYK_GW_SECRET: ${TYK_SECRET:-tyk-secret}
+  #   volumes:
+  #     - ../../gateway/tyk.conf:/opt/tyk-gateway/tyk.conf:ro
+  #     - ../../gateway/apps:/opt/tyk-gateway/apps:ro
+  #   ports:
+  #     - "8080:8080"
 
   identity-service:
     image: identity-service
@@ -131,6 +116,15 @@ services:
       - ../../internal/pkg:/workspace/internal/pkg
       # Isolate the tmp dir so host and container don't share build artifacts
       - /workspace/internal/services/identity/tmp
+    labels:
+      - "traefik.enable=true"
+      # Route: /api/identity/** → identity-service
+      - "traefik.http.routers.identity-service.rule=PathPrefix(`/api/identity`)"
+      - "traefik.http.routers.identity-service.entrypoints=web"
+      - "traefik.http.services.identity-service.loadbalancer.server.port=8081"
+      # Strip /api/identity prefix before forwarding
+      - "traefik.http.middlewares.strip-identity-api.stripprefix.prefixes=/api/identity"
+      - "traefik.http.routers.identity-service.middlewares=strip-identity-api"
     ports:
       - "8081:8081"
     
@@ -156,6 +150,15 @@ services:
       - ../../internal/pkg:/workspace/internal/pkg
       # Isolate the tmp dir so host and container don't share build artifacts
       - /workspace/internal/services/catalog/tmp
+    labels:
+      - "traefik.enable=true"
+      # Route: /api/catalog/** → catalog-service
+      - "traefik.http.routers.catalog-service.rule=PathPrefix(`/api/catalog`)"
+      - "traefik.http.routers.catalog-service.entrypoints=web"
+      - "traefik.http.services.catalog-service.loadbalancer.server.port=8082"
+      # Strip /api prefix before forwarding
+      - "traefik.http.middlewares.strip-catalog-api.stripprefix.prefixes=/api/catalog"
+      - "traefik.http.routers.catalog-service.middlewares=strip-catalog-api"
     ports:
       - "8082:8082"
     
@@ -181,6 +184,15 @@ services:
       - ../../internal/pkg:/workspace/internal/pkg
       # Isolate the tmp dir so host and container don't share build artifacts
       - /workspace/internal/services/commerce/tmp
+    labels:
+      - "traefik.enable=true"
+      # Route: /api/commerce/** → commerce-service
+      - "traefik.http.routers.commerce-service.rule=PathPrefix(`/api/commerce`)"
+      - "traefik.http.routers.commerce-service.entrypoints=web"
+      - "traefik.http.services.commerce-service.loadbalancer.server.port=8083"
+      # Strip /api/commerce prefix before forwarding
+      - "traefik.http.middlewares.strip-commerce-api.stripprefix.prefixes=/api/commerce"
+      - "traefik.http.routers.commerce-service.middlewares=strip-commerce-api"
     ports:
       - "8083:8083"
 
