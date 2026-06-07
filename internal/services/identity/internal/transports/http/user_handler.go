@@ -7,7 +7,6 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/application"
 	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/application/command"
 	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/application/query"
-	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/transports/http/dto"
 )
 
@@ -27,16 +26,13 @@ func (h *UserHandler) UpdateProfileHandler(ctx *gin.Context) {
 		return
 	}
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, errors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
 	_, err := h.app.Commands.UpdateProfile.Handle(ctx.Request.Context(), command.UpdateProfile{
-		UserID: authUser.UserID(),
-		Name:   req.Name,
-		Gender: req.Gender,
+		UserID:    claim.UserID(),
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Gender:    req.Gender,
 	})
 	if err != nil {
 		utils.ResponseError(ctx, err)
@@ -47,14 +43,10 @@ func (h *UserHandler) UpdateProfileHandler(ctx *gin.Context) {
 }
 
 func (h *UserHandler) GetProfileHandler(ctx *gin.Context) {
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, errors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
 	user, err := h.app.Queries.Profile.Handle(ctx.Request.Context(), query.Profile{
-		ID: authUser.UserID(),
+		Email: claim.UserID(),
 	})
 	if err != nil {
 		utils.ResponseError(ctx, err)

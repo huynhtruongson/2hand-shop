@@ -32,14 +32,10 @@ func (h *CommerceHandler) AddToCart(ctx *gin.Context) {
 		return
 	}
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, carterrors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
 	result, err := h.app.Commands.AddToCart.Handle(ctx.Request.Context(), command.AddToCartCommand{
-		UserID:      authUser.UserID(),
+		UserID:      claim.UserID(),
 		ProductID:   req.ProductID,
 		ProductName: req.ProductName,
 		Price:       req.Price,
@@ -58,14 +54,10 @@ func (h *CommerceHandler) AddToCart(ctx *gin.Context) {
 
 // GetCart handles GET /cart.
 func (h *CommerceHandler) GetCart(ctx *gin.Context) {
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, carterrors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
 	result, err := h.app.Queries.GetCart.Handle(ctx.Request.Context(), query.GetCartQuery{
-		UserID: authUser.UserID(),
+		UserID: claim.UserID(),
 	})
 	if err != nil {
 		utils.ResponseError(ctx, err)
@@ -104,14 +96,10 @@ func (h *CommerceHandler) RemoveFromCart(ctx *gin.Context) {
 		return
 	}
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, carterrors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
 	result, err := h.app.Commands.RemoveFromCart.Handle(ctx.Request.Context(), command.RemoveFromCartCommand{
-		UserID:    authUser.UserID(),
+		UserID:    claim.UserID(),
 		ProductID: req.ProductID,
 	})
 	if err != nil {
@@ -133,14 +121,10 @@ func (h *CommerceHandler) CreateCheckoutSession(ctx *gin.Context) {
 		return
 	}
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, carterrors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
 	result, err := h.app.Commands.CreateCheckoutSession.Handle(ctx.Request.Context(), command.CreateCheckoutSessionCommand{
-		UserID:          authUser.UserID(),
+		UserID:          claim.UserID(),
 		SuccessURL:      req.SuccessURL,
 		CancelURL:       req.CancelURL,
 		ShippingAddress: req.ShippingAddress,
@@ -164,13 +148,9 @@ func (h *CommerceHandler) GetCheckoutSession(ctx *gin.Context) {
 		return
 	}
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, carterrors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
-	_ = authUser // reserved for future user-level validation
+	_ = claim // reserved for future user-level validation
 
 	result, err := h.app.Queries.GetCheckoutSession.Handle(ctx.Request.Context(), query.GetCheckoutSessionQuery{
 		SessionID: sessionID,

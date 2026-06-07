@@ -14,9 +14,10 @@ type User struct {
 	authProvider   string
 	authProviderID string
 	email          string
-	name           string
+	firstName      string
+	lastName       string
 	gender         string
-	verifiedAt     *time.Time
+	emailVerified  bool
 	role           valueobject.UserRole
 	createdAt      time.Time
 	updatedAt      time.Time
@@ -31,17 +32,18 @@ var (
 	phoneRegex = regexp.MustCompile(`^\+[1-9]\d{7,14}$`)
 )
 
-func NewUser(id, email, name, gender string, role valueobject.UserRole) (*User, error) {
+func NewUser(id, email, firstName, lastName, gender string, role valueobject.UserRole) (*User, error) {
 	u := User{
-		id:         id,
-		email:      email,
-		name:       name,
-		gender:     gender,
-		verifiedAt: nil,
-		role:       role,
-		createdAt:  time.Now().UTC(),
-		updatedAt:  time.Now().UTC(),
-		deletedAt:  nil,
+		id:            id,
+		email:         email,
+		firstName:     firstName,
+		lastName:      lastName,
+		gender:        gender,
+		emailVerified: false,
+		role:          role,
+		createdAt:     time.Now().UTC(),
+		updatedAt:     time.Now().UTC(),
+		deletedAt:     nil,
 	}
 	if err := u.validate(); err != nil {
 		return nil, err
@@ -53,20 +55,22 @@ func (u *User) ID() string                 { return u.id }
 func (u *User) AuthProvider() string       { return u.authProvider }
 func (u *User) AuthProviderID() string     { return u.authProviderID }
 func (u *User) Email() string              { return u.email }
-func (u *User) Name() string               { return u.name }
+func (u *User) FirstName() string          { return u.firstName }
+func (u *User) LastName() string           { return u.lastName }
 func (u *User) Gender() string             { return u.gender }
 func (u *User) Role() valueobject.UserRole { return u.role }
-func (u *User) VerifiedAt() *time.Time     { return u.verifiedAt }
+func (u *User) EmailVerified() bool        { return u.emailVerified }
 func (u *User) CreatedAt() time.Time       { return u.createdAt }
 func (u *User) UpdatedAt() time.Time       { return u.updatedAt }
 func (u *User) DeletedAt() *time.Time      { return u.deletedAt }
 
 func (u *User) IsVerified() bool {
-	return u.verifiedAt != nil
+	return u.emailVerified
 }
 
-func (u *User) UpdateProfile(name, gender string) error {
-	u.name = name
+func (u *User) UpdateProfile(firstName, lastName, gender string) error {
+	u.firstName = firstName
+	u.lastName = lastName
 	u.gender = gender
 	u.updatedAt = time.Now().UTC()
 	return u.validate()
@@ -81,9 +85,10 @@ func UnmarshalUserFromDB(id string,
 	authProvider string,
 	authProviderID string,
 	email string,
-	name string,
+	firstName string,
+	lastName string,
 	gender string,
-	verifiedAt *time.Time,
+	emailVerified bool,
 	role valueobject.UserRole,
 	createdAt time.Time,
 	updatedAt time.Time,
@@ -93,9 +98,10 @@ func UnmarshalUserFromDB(id string,
 		authProvider:   authProvider,
 		authProviderID: authProviderID,
 		email:          email,
-		name:           name,
+		firstName:      firstName,
+		lastName:       lastName,
 		gender:         gender,
-		verifiedAt:     verifiedAt,
+		emailVerified:  emailVerified,
 		role:           role,
 		createdAt:      createdAt,
 		updatedAt:      updatedAt,
@@ -111,8 +117,10 @@ func (u *User) validate() error {
 		return errors.ErrValidation.WithDetail("email", "email is empty")
 	case !emailRegex.MatchString(u.email):
 		return errors.ErrValidation.WithDetail("email", "email format is invalid")
-	case strings.TrimSpace(u.name) == "":
-		return errors.ErrValidation.WithDetail("name", "name is empty")
+	case strings.TrimSpace(u.firstName) == "":
+		return errors.ErrValidation.WithDetail("firstName", "firstName is empty")
+	case strings.TrimSpace(u.lastName) == "":
+		return errors.ErrValidation.WithDetail("lastName", "lastName is empty")
 	case strings.TrimSpace(u.gender) == "":
 		return errors.ErrValidation.WithDetail("gender", "gender is empty")
 	}

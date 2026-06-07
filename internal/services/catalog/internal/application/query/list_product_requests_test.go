@@ -103,7 +103,7 @@ func TestListProductRequestsHandler_Handle(t *testing.T) {
 		},
 		{
 			name:      "admin user — no sellerID filter",
-			query:     ListProductRequestsQuery{Page: 1, Limit: 10, User: auth.NewUser("admin-1", "admin").Ptr()},
+			query:     ListProductRequestsQuery{Page: 1, Limit: 10, User: auth.NewUserCtx("admin-1", "admin").Ptr()},
 			repo:      newMockProductRequestRepo(nil, 5),
 			wantLen:   0,
 			wantPage:  1,
@@ -113,7 +113,7 @@ func TestListProductRequestsHandler_Handle(t *testing.T) {
 		},
 		{
 			name:      "non-admin user — sellerID filter forced to auth user",
-			query:     ListProductRequestsQuery{Page: 1, Limit: 10, User: auth.NewUser(sellerID, "client").Ptr()},
+			query:     ListProductRequestsQuery{Page: 1, Limit: 10, User: auth.NewUserCtx(sellerID, "client").Ptr()},
 			repo:      newMockProductRequestRepoWithSellerID(&sellerID, 4),
 			wantLen:   0,
 			wantPage:  1,
@@ -181,12 +181,12 @@ func TestListProductRequestsHandler_Handle(t *testing.T) {
 
 // mockProductRequestRepo is a test double for repository.ProductRequestRepository.
 type mockProductRequestRepo struct {
-	categoryFilter    *string
-	sellerIDFilter    *string
-	statusesFilter     []string
-	conditionsFilter   []string
-	returnTotal        int
-	returnErr          error
+	categoryFilter   *string
+	sellerIDFilter   *string
+	statusesFilter   []string
+	conditionsFilter []string
+	returnTotal      int
+	returnErr        error
 }
 
 func newMockProductRequestRepo(category *string, total int) *mockProductRequestRepo {

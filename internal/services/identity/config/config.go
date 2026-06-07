@@ -10,7 +10,8 @@ import (
 type Config struct {
 	App      AppConfig      `mapstructure:",squash"`
 	Logger   LoggerConfig   `mapstructure:",squash"`
-	Cognito  CognitoConfig  `mapstructure:",squash"`
+	Keycloak KeycloakConfig `mapstructure:",squash"`
+	RabbitMQ RabbitMQConfig `mapstructure:",squash"`
 	Postgres PostgresConfig `mapstructure:",squash"`
 	GinHttp  GinHttpConfig  `mapstructure:",squash"`
 }

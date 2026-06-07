@@ -11,18 +11,19 @@ import (
 type Config struct {
 	App           AppConfig           `mapstructure:",squash"`
 	Logger        LoggerConfig        `mapstructure:",squash"`
-	Cognito       CognitoConfig       `mapstructure:",squash"`
+	Keycloak      KeycloakConfig      `mapstructure:",squash"`
 	Postgres      PostgresConfig      `mapstructure:",squash"`
 	GinHttp       GinHttpConfig       `mapstructure:",squash"`
 	RabbitMQ      RabbitMQConfig      `mapstructure:",squash"`
 	Elasticsearch ElasticsearchConfig `mapstructure:",squash"`
 }
 
-// CognitoConfig holds the AWS Cognito user pool settings used by the auth middleware.
-type CognitoConfig struct {
-	Region     string `mapstructure:"cognito_region"`
-	UserPoolID string `mapstructure:"cognito_user_pool_id"`
-	ClientID   string `mapstructure:"cognito_client_id"`
+// KeycloakConfig holds the Keycloak settings used by the auth middleware.
+type KeycloakConfig struct {
+	Realm        string `mapstructure:"keycloak_realm"`
+	BaseURL      string `mapstructure:"keycloak_base_url"`
+	ClientID     string `mapstructure:"keycloak_client_id"`
+	ClientSecret string `mapstructure:"keycloak_client_secret"`
 }
 
 // Load reads configuration from /config/.env using Viper.

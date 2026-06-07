@@ -1,10 +1,11 @@
 package auth
 
 type SignUpParams struct {
-	Name     string
-	Email    string
-	Gender   string
-	Password string
+	FirstName string
+	LastName  string
+	Email     string
+	Gender    string
+	Password  string
 }
 type SignUpResult struct {
 	UserID     string

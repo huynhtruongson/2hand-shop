@@ -62,7 +62,7 @@ func NewDB(cfg Config, logger logger.Logger) (*sqlxDB, error) {
 
 	dsn := buildDSN(cfg)
 
-	db, err := sqlx.Connect("postgres+hooks", dsn)
+	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("db: open connection: %w", err)
 	}

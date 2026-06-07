@@ -49,7 +49,7 @@ func NewHttpServer(cfg config.Config, logger logger.Logger, catalogHandler *Cata
 	}))
 
 	router.GET("/health", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "service": "catalog-service"})
 	})
 
 	httpServer := HttpServer{cfg: cfg, srv: &http.Server{
@@ -76,23 +76,16 @@ func (s *HttpServer) Addr() string {
 
 func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *CatalogHandler) {
 	// public routes
-	r.GET("/products/search", catalogHandler.SearchProductsHandler)
-	r.GET("/products", catalogHandler.ListProductHandler)
-	r.GET("/products/:product_id", catalogHandler.GetProductHandler)
+	publicRoutes := r.Group("/public")
+	publicRoutes.GET("/products/search", catalogHandler.SearchProductsHandler)
+	publicRoutes.GET("/products", catalogHandler.ListProductHandler)
+	publicRoutes.GET("/products/:product_id", catalogHandler.GetProductHandler)
 
-	// private routes
-	authMiddleware := auth.CognitoAuth(auth.CognitoConfig{
-		Region:     sv.cfg.Cognito.Region,
-		UserPoolID: sv.cfg.Cognito.UserPoolID,
-		ClientID:   sv.cfg.Cognito.ClientID,
-		TokenUse:   "access",
-	})
-
-	authRoutes := r.Group("", authMiddleware)
-	authRoutes.GET("/product-requests", catalogHandler.ListProductRequestsHandler)
+	// admin+client
+	r.GET("/product-requests", catalogHandler.ListProductRequestsHandler)
 
 	// admin
-	adminRoutes := r.Group("", authMiddleware, auth.RequireRole("admin"))
+	adminRoutes := r.Group("", auth.RequireRoleMiddleware("admin"))
 	adminRoutes.POST("/products", catalogHandler.CreateProductHandler)
 	adminRoutes.PUT("/products/:product_id", catalogHandler.UpdateProductHandler)
 	adminRoutes.POST("/products/:product_id/publish", catalogHandler.PublishProductHandler)
@@ -101,7 +94,7 @@ func (sv *HttpServer) registerCatalogRoutes(r *gin.Engine, catalogHandler *Catal
 	adminRoutes.POST("/product-requests/:product_request_id/reject", catalogHandler.RejectProductRequestHandler)
 
 	// client
-	sellerRoutes := r.Group("", authMiddleware, auth.RequireRole("client"))
+	sellerRoutes := r.Group("", auth.RequireRoleMiddleware("client"))
 	sellerRoutes.POST("/product-requests", catalogHandler.CreateProductRequestHandler)
 	sellerRoutes.PUT("/product-requests/:product_request_id", catalogHandler.UpdateProductRequestHandler)
 	sellerRoutes.DELETE("/product-requests/:product_request_id", catalogHandler.DeleteProductRequestHandler)

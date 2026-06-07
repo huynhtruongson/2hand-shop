@@ -14,7 +14,7 @@ import (
 type ListProductHandler cqrs.QueryHandler[ListProductQuery, ListProductResponse]
 
 type ListProductQuery struct {
-	User       *auth.User
+	ClaimInfo  auth.Claims
 	Page       int
 	Limit      int
 	Category   *string
@@ -57,7 +57,7 @@ func (h *listProductHandler) Handle(ctx context.Context, q ListProductQuery) (Li
 		Conditions: q.Conditions,
 		Sort:       q.Sort,
 	}
-	if q.User != nil && !q.User.IsAdmin() {
+	if !q.ClaimInfo.HasAdminRole() {
 		filter.Statuses = []string{"published"}
 	}
 	products, total, err := h.repo.List(ctx, h.db, filter, postgressqlx.NewPage(q.Limit, offset, maxLimit))

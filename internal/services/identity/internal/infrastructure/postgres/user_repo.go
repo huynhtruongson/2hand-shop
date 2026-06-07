@@ -18,10 +18,11 @@ type userModel struct {
 	AuthProvider   string       `db:"auth_provider"`
 	AuthProviderID string       `db:"auth_provider_id"`
 	Email          string       `db:"email"`
-	Name           string       `db:"name"`
+	FirstName      string       `db:"first_name"`
+	LastName       string       `db:"last_name"`
 	Gender         string       `db:"gender"`
 	Role           string       `db:"role"`
-	VerifiedAt     sql.NullTime `db:"verified_at"`
+	EmailVerified  bool         `db:"email_verified"`
 	CreatedAt      time.Time    `db:"created_at"`
 	UpdatedAt      time.Time    `db:"updated_at"`
 	DeletedAt      sql.NullTime `db:"deleted_at"`
@@ -33,10 +34,11 @@ func toModel(u *entity.User) *userModel {
 		AuthProvider:   u.AuthProvider(),
 		AuthProviderID: u.AuthProviderID(),
 		Email:          u.Email(),
-		Name:           u.Name(),
+		FirstName:      u.FirstName(),
+		LastName:       u.LastName(),
 		Gender:         u.Gender(),
 		Role:           u.Role().String(),
-		VerifiedAt:     utils.TimePtrToNullTime(u.VerifiedAt()),
+		EmailVerified:  u.EmailVerified(),
 		CreatedAt:      u.CreatedAt(),
 		UpdatedAt:      u.UpdatedAt(),
 		DeletedAt:      utils.TimePtrToNullTime(u.DeletedAt()),
@@ -52,9 +54,10 @@ func (u userModel) toAggregate() (*entity.User, error) {
 		u.AuthProvider,
 		u.AuthProviderID,
 		u.Email,
-		u.Name,
+		u.FirstName,
+		u.LastName,
 		u.Gender,
-		utils.NullTimeToPtr(u.VerifiedAt),
+		u.EmailVerified,
 		role,
 		u.CreatedAt,
 		u.UpdatedAt,
@@ -72,7 +75,7 @@ func NewUserRepo() *UserRepo {
 
 func (ur *UserRepo) GetUserByEmail(ctx context.Context, db postgressqlx.Querier, email string) (*entity.User, error) {
 	const query = `
-		SELECT id, auth_provider, auth_provider_id, email, name, gender, role, verified_at, created_at, updated_at, deleted_at
+		SELECT id, auth_provider, auth_provider_id, email, first_name, last_name, gender, email_verified, role, created_at, updated_at, deleted_at
 		FROM users
 		WHERE email = $1
 		LIMIT 1`
@@ -95,8 +98,8 @@ func (ur *UserRepo) GetUserByEmail(ctx context.Context, db postgressqlx.Querier,
 
 func (ur *UserRepo) CreateUser(ctx context.Context, db postgressqlx.Querier, user *entity.User) error {
 	const query = `
-		INSERT INTO users (id, auth_provider, auth_provider_id, email, name, gender, role, verified_at, created_at, updated_at, deleted_at)
-		VALUES (:id, :auth_provider, :auth_provider_id, :email, :name, :gender, :role, :verified_at, :created_at, :updated_at, :deleted_at)`
+		INSERT INTO users (id, auth_provider, auth_provider_id, email, first_name, last_name, gender, role, email_verified, created_at, updated_at, deleted_at)
+		VALUES (:id, :auth_provider, :auth_provider_id, :email, :first_name, :last_name, :gender, :role, :email_verified, :created_at, :updated_at, :deleted_at)`
 
 	model := toModel(user)
 	_, err := db.NamedExecContext(ctx, query, model)
@@ -110,11 +113,11 @@ func (ur *UserRepo) CreateUser(ctx context.Context, db postgressqlx.Querier, use
 func (ur *UserRepo) UpdateUserVerified(ctx context.Context, db postgressqlx.Querier, email string) error {
 	const query = `
 		UPDATE users
-		SET verified_at = $1, updated_at = $2
+		SET email_verified = $1, updated_at = $2
 		WHERE email = $3`
 
 	now := time.Now().UTC()
-	result, err := db.ExecContext(ctx, query, now, now, email)
+	result, err := db.ExecContext(ctx, query, true, now, email)
 	if err != nil {
 		return svErr.ErrInternal.WithCause(err).WithInternal("UserRepo.UpdateUserVerified")
 	}
@@ -132,7 +135,7 @@ func (ur *UserRepo) UpdateUserVerified(ctx context.Context, db postgressqlx.Quer
 
 func (ur *UserRepo) GetUserByID(ctx context.Context, db postgressqlx.Querier, userID string) (*entity.User, error) {
 	const query = `
-		SELECT id, auth_provider, auth_provider_id, email, name, gender, role, verified_at, created_at, updated_at, deleted_at
+		SELECT id, auth_provider, auth_provider_id, email, first_name, last_name, gender, role, email_verified, created_at, updated_at, deleted_at
 		FROM users
 		WHERE id = $1
 		LIMIT 1`
@@ -156,10 +159,10 @@ func (ur *UserRepo) GetUserByID(ctx context.Context, db postgressqlx.Querier, us
 func (ur *UserRepo) UpdateUserProfile(ctx context.Context, db postgressqlx.Querier, user *entity.User) error {
 	const query = `
 		UPDATE users
-		SET name = $1, gender = $2, updated_at = $3
-		WHERE id = $4`
+		SET first_name = $1, last_name = $2, gender = $3, updated_at = $4
+		WHERE id = $5`
 
-	result, err := db.ExecContext(ctx, query, user.Name(), user.Gender(), time.Now(), user.ID())
+	result, err := db.ExecContext(ctx, query, user.FirstName(), user.LastName(), user.Gender(), time.Now(), user.ID())
 	if err != nil {
 		return svErr.ErrInternal.WithCause(err).WithInternal("UserRepo.UpdateUserProfile")
 	}

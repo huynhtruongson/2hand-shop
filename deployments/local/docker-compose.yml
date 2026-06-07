@@ -30,6 +30,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.2
+    container_name: keycloak
+    command: start-dev
+    environment:
+      KC_LOG_LEVEL: DEBUG
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KK_TO_RMQ_URL: rabbitmq
+      KK_TO_RMQ_PORT: 5672
+      KK_TO_RMQ_VHOST: 2hand-shop
+      KK_TO_RMQ_USERNAME: keycloak_sa
+      KK_TO_RMQ_PASSWORD: keycloak_sa
+      KK_TO_RMQ_EXCHANGE: keycloak.events
+    ports:
+      - "8100:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak-to-rabbit-3.0.5.jar:/opt/keycloak/providers/keycloak-to-rabbit-3.0.5.jar
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -38,8 +61,8 @@ services:
       - "5672:5672" # AMQP
       - "15672:15672" # Management UI
     volumes:
-      - ../../rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ../../rabbitmq_definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq_definitions.json:/etc/rabbitmq/definitions.json:ro
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
@@ -80,21 +103,6 @@ services:
       - "8080:8080"   # Traefik dashboard → http://localhost:8080
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro" # Read Docker socket
-  # tyk-gateway:
-  #   image: tykio/tyk-gateway:latest
-  #   restart: unless-stopped
-  #   depends_on:
-  #     redis:
-  #       condition: service_healthy
-  #     identity-service:
-  #       condition: service_started
-  #   environment:
-  #     TYK_GW_SECRET: ${TYK_SECRET:-tyk-secret}
-  #   volumes:
-  #     - ../../gateway/tyk.conf:/opt/tyk-gateway/tyk.conf:ro
-  #     - ../../gateway/apps:/opt/tyk-gateway/apps:ro
-  #   ports:
-  #     - "8080:8080"
 
   identity-service:
     image: identity-service
@@ -118,15 +126,33 @@ services:
       - /workspace/internal/services/identity/tmp
     labels:
       - "traefik.enable=true"
+
+      # ── ForwardAuth middleware ─────────────────────────────────────────────
+      # Any router that adds "jwt-auth" to its middlewares will call /verify first.
+      # 200 → forward request with injected headers
+      # 401 → Traefik returns 401 immediately, upstream never called
+      - "traefik.http.middlewares.jwt-auth.forwardauth.address=http://identity-service:8081/verify"
+      - "traefik.http.middlewares.jwt-auth.forwardauth.authRequestHeaders=Authorization"
+      - "traefik.http.middlewares.jwt-auth.forwardauth.authResponseHeaders=X-Auth-Request-User-Id,X-Auth-Request-Email,X-Auth-Request-Roles"
+      # ── /verify — public, NO auth middleware ─────────────────────────────────
+      # Must be a separate router with higher priority so it is never caught
+      # by the protected router below — an auth loop would occur otherwise.
+      - "traefik.http.routers.user-verify.rule=Path(`/verify`)"
+      - "traefik.http.routers.user-verify.entrypoints=web"
+      - "traefik.http.routers.user-verify.priority=20"
+      - "traefik.http.routers.user-verify.service=identity-service"
+
       # Route: /api/identity/** → identity-service
       - "traefik.http.routers.identity-service.rule=PathPrefix(`/api/identity`)"
       - "traefik.http.routers.identity-service.entrypoints=web"
-      - "traefik.http.services.identity-service.loadbalancer.server.port=8081"
-      # Strip /api/identity prefix before forwarding
+      - "traefik.http.routers.identity-service.priority=10"
       - "traefik.http.middlewares.strip-identity-api.stripprefix.prefixes=/api/identity"
-      - "traefik.http.routers.identity-service.middlewares=strip-identity-api"
+      - "traefik.http.routers.identity-service.middlewares=strip-identity-api,jwt-auth"
+
+      - "traefik.http.services.identity-service.loadbalancer.server.port=8081"
+
     ports:
-      - "8081:8081"
+      - "8081"
     
   catalog-service:
     image: catalog-service
@@ -152,15 +178,20 @@ services:
       - /workspace/internal/services/catalog/tmp
     labels:
       - "traefik.enable=true"
-      # Route: /api/catalog/** → catalog-service
+      # protected routes
       - "traefik.http.routers.catalog-service.rule=PathPrefix(`/api/catalog`)"
       - "traefik.http.routers.catalog-service.entrypoints=web"
+      - "traefik.http.routers.catalog-service.priority=10"
       - "traefik.http.services.catalog-service.loadbalancer.server.port=8082"
-      # Strip /api prefix before forwarding
       - "traefik.http.middlewares.strip-catalog-api.stripprefix.prefixes=/api/catalog"
-      - "traefik.http.routers.catalog-service.middlewares=strip-catalog-api"
+      - "traefik.http.routers.catalog-service.middlewares=strip-catalog-api,jwt-auth"
+      # public routes
+      - "traefik.http.routers.catalog-service-public.rule=PathPrefix(`/api/catalog/public`)"
+      - "traefik.http.routers.catalog-service-public.entrypoints=web"
+      - "traefik.http.routers.catalog-service-public.priority=50"
+      - "traefik.http.routers.catalog-service-public.middlewares=strip-catalog-api"
     ports:
-      - "8082:8082"
+      - "8082"
     
   commerce-service:
     image: commerce-service
@@ -186,18 +217,24 @@ services:
       - /workspace/internal/services/commerce/tmp
     labels:
       - "traefik.enable=true"
-      # Route: /api/commerce/** → commerce-service
+      # protected routes
       - "traefik.http.routers.commerce-service.rule=PathPrefix(`/api/commerce`)"
       - "traefik.http.routers.commerce-service.entrypoints=web"
+      - "traefik.http.routers.commerce-service.priority=10"
       - "traefik.http.services.commerce-service.loadbalancer.server.port=8083"
-      # Strip /api/commerce prefix before forwarding
       - "traefik.http.middlewares.strip-commerce-api.stripprefix.prefixes=/api/commerce"
-      - "traefik.http.routers.commerce-service.middlewares=strip-commerce-api"
+      - "traefik.http.routers.commerce-service.middlewares=strip-commerce-api,jwt-auth"
+      # public routes
+      - "traefik.http.routers.commerce-service-public.rule=PathPrefix(`/api/commerce/webhooks`)"
+      - "traefik.http.routers.commerce-service-public.entrypoints=web"
+      - "traefik.http.routers.commerce-service-public.priority=50"
+      - "traefik.http.routers.commerce-service-public.middlewares=strip-commerce-api"
     ports:
-      - "8083:8083"
+      - "8083"
 
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
   es_data:
+  keycloak_data:

@@ -6,7 +6,6 @@ import (
 	"github.com/huynhtruongson/2hand-shop/internal/pkg/utils"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/application/command"
-	caterrors "github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/domain/errors"
 	"github.com/huynhtruongson/2hand-shop/internal/services/catalog/internal/transports/http/dto"
 )
 
@@ -43,10 +42,7 @@ func (h *CatalogHandler) ListProductHandler(ctx *gin.Context) {
 		return
 	}
 	query := req.ToListProductQuery()
-	authUser, ok := auth.UserFromCtx(ctx)
-	if ok {
-		query.User = &authUser
-	}
+	query.ClaimInfo = auth.GetClaims(ctx)
 	result, err := h.app.Queries.ListProduct.Handle(ctx.Request.Context(), query)
 	if err != nil {
 		utils.ResponseError(ctx, err)
@@ -119,12 +115,8 @@ func (h *CatalogHandler) CreateProductRequestHandler(ctx *gin.Context) {
 		return
 	}
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, caterrors.ErrUnauthorized)
-		return
-	}
-	req.SellerID = authUser.UserID()
+	claim := auth.GetClaims(ctx)
+	req.SellerID = claim.UserID()
 
 	result, err := h.app.Commands.CreateProductRequest.Handle(ctx.Request.Context(), req.ToCreateProductRequestCommand())
 	if err != nil {
@@ -179,12 +171,7 @@ func (h *CatalogHandler) ListProductRequestsHandler(ctx *gin.Context) {
 
 	query := req.ToListProductRequestsQuery()
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, caterrors.ErrUnauthorized)
-		return
-	}
-	query.User = &authUser
+	query.ClaimInfo = auth.GetClaims(ctx)
 
 	result, err := h.app.Queries.ListProductRequests.Handle(ctx.Request.Context(), query)
 	if err != nil {
@@ -207,14 +194,10 @@ func (h *CatalogHandler) UpdateProductRequestHandler(ctx *gin.Context) {
 		return
 	}
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, caterrors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
 	result, err := h.app.Commands.UpdateProductRequest.Handle(ctx.Request.Context(),
-		req.ToUpdateProductRequestCommand(reqID.ProductID, authUser.UserID()))
+		req.ToUpdateProductRequestCommand(reqID.ProductID, claim.UserID()))
 	if err != nil {
 		utils.ResponseError(ctx, err)
 		return
@@ -230,15 +213,11 @@ func (h *CatalogHandler) DeleteProductRequestHandler(ctx *gin.Context) {
 		return
 	}
 
-	authUser, ok := auth.UserFromCtx(ctx)
-	if !ok {
-		utils.ResponseError(ctx, caterrors.ErrUnauthorized)
-		return
-	}
+	claim := auth.GetClaims(ctx)
 
 	_, err := h.app.Commands.DeleteProductRequest.Handle(ctx.Request.Context(), command.DeleteProductRequestCommand{
 		ProductRequestID: reqID.ProductID,
-		SellerID:         authUser.UserID(),
+		SellerID:         claim.UserID(),
 	})
 	if err != nil {
 		utils.ResponseError(ctx, err)

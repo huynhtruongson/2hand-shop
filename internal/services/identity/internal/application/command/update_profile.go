@@ -11,9 +11,10 @@ import (
 type UpdateProfileHandler cqrs.CommandHandler[UpdateProfile, UpdateProfileResponse]
 
 type UpdateProfile struct {
-	UserID string
-	Name   string
-	Gender string
+	UserID    string
+	FirstName string
+	LastName  string
+	Gender    string
 }
 type UpdateProfileResponse struct{}
 type updateProfileHandler struct {
@@ -33,7 +34,7 @@ func (h *updateProfileHandler) Handle(ctx context.Context, cmd UpdateProfile) (U
 		return UpdateProfileResponse{}, err
 	}
 	if err := postgressqlx.ExecTx(ctx, h.db, func(ctx context.Context, tx postgressqlx.TX) error {
-		user.UpdateProfile(cmd.Name, cmd.Gender)
+		user.UpdateProfile(cmd.FirstName, cmd.LastName, cmd.Gender)
 		return h.userRepo.UpdateUserProfile(ctx, tx, user)
 	}); err != nil {
 		return UpdateProfileResponse{}, err

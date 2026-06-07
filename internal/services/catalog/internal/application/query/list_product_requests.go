@@ -16,7 +16,7 @@ type ListProductRequestsHandler cqrs.QueryHandler[ListProductRequestsQuery, List
 
 // ListProductRequestsQuery carries the auth context and filter parameters for listing product requests.
 type ListProductRequestsQuery struct {
-	User       *auth.User
+	ClaimInfo  auth.Claims
 	Page       int
 	Limit      int
 	Category   *string
@@ -67,8 +67,8 @@ func (h *listProductRequestsHandler) Handle(ctx context.Context, q ListProductRe
 		Sort:       q.Sort,
 	}
 
-	if q.User != nil && !q.User.IsAdmin() {
-		sellerID := q.User.UserID()
+	if !q.ClaimInfo.HasAdminRole() {
+		sellerID := q.ClaimInfo.UserID()
 		filter.SellerID = &sellerID
 	}
 

@@ -12,7 +12,7 @@ import (
 type ProfileHandler cqrs.QueryHandler[Profile, *entity.User]
 
 type Profile struct {
-	ID string
+	Email string
 }
 
 type profileHandler struct {
@@ -28,5 +28,5 @@ func NewProfileHandler(db postgressqlx.DB, userRepo repository.UserRepo) Profile
 }
 
 func (h *profileHandler) Handle(ctx context.Context, query Profile) (*entity.User, error) {
-	return h.userRepo.GetUserByID(ctx, h.db, query.ID)
+	return h.userRepo.GetUserByID(ctx, h.db, query.Email)
 }

@@ -9,5 +9,7 @@ import (
 
 type UserRepo interface {
 	GetUserByID(ctx context.Context, querier postgressqlx.Querier, userID string) (*entity.User, error)
+	GetUserByEmail(ctx context.Context, querier postgressqlx.Querier, email string) (*entity.User, error)
+	CreateUser(ctx context.Context, db postgressqlx.Querier, user *entity.User) error
 	UpdateUserProfile(ctx context.Context, querier postgressqlx.Querier, user *entity.User) error
 }

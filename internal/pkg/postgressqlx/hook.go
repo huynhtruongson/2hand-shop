@@ -51,6 +51,7 @@ func (h *sqlHooks) After(ctx context.Context, query string, args ...interface{})
 	h.logger.Debug(
 		"executed sql",
 		"sql_query", cleanQuery,
+		"sql_args", args,
 		"duration_ms", duration.Seconds()*1000,
 		"sql_operation", operation,
 		"sql_success", true,

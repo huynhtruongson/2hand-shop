@@ -30,7 +30,7 @@ func NewHttpServer(cfg config.Config, logger logger.Logger, commerceHandler *Com
 	}))
 
 	router.GET("/health", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+		ctx.JSON(http.StatusOK, gin.H{"status": "ok", "service": "commerce-service"})
 	})
 
 	httpServer := HttpServer{cfg: cfg, srv: &http.Server{
@@ -62,14 +62,7 @@ func (sv *HttpServer) registerCommerceRoutes(r *gin.Engine, commerceHandler *Com
 		commerceHandler.HandleCheckoutWebhook,
 	)
 
-	authMiddleware := auth.CognitoAuth(auth.CognitoConfig{
-		Region:     sv.cfg.Cognito.Region,
-		UserPoolID: sv.cfg.Cognito.UserPoolID,
-		ClientID:   sv.cfg.Cognito.ClientID,
-		TokenUse:   "access",
-	})
-
-	clientRoutes := r.Group("", authMiddleware, auth.RequireRole("client"))
+	clientRoutes := r.Group("", auth.RequireRoleMiddleware("client"))
 
 	clientRoutes.GET("/cart", commerceHandler.GetCart)
 	clientRoutes.POST("/add_to_cart", commerceHandler.AddToCart)

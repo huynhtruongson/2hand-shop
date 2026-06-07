@@ -93,16 +93,22 @@ type MockTX struct{}
 // satisfy postgressqlx.TX
 var _ postgressqlx.TX = (*MockTX)(nil)
 
-func (m *MockTX) GetContext(ctx context.Context, dest any, query string, args ...any) error { return nil }
+func (m *MockTX) GetContext(ctx context.Context, dest any, query string, args ...any) error {
+	return nil
+}
 func (m *MockTX) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	return nil, nil
 }
 func (m *MockTX) NamedExecContext(ctx context.Context, query string, arg any) (sql.Result, error) {
 	return nil, nil
 }
-func (m *MockTX) SelectContext(ctx context.Context, dest any, query string, args ...any) error { return nil }
-func (m *MockTX) NamedQuery(query string, arg any) (*sqlx.Rows, error)                         { return nil, nil }
-func (m *MockTX) QueryRowxContext(ctx context.Context, query string, args ...any) *sqlx.Row      { return nil }
+func (m *MockTX) SelectContext(ctx context.Context, dest any, query string, args ...any) error {
+	return nil
+}
+func (m *MockTX) NamedQuery(query string, arg any) (*sqlx.Rows, error) { return nil, nil }
+func (m *MockTX) QueryRowxContext(ctx context.Context, query string, args ...any) *sqlx.Row {
+	return nil
+}
 func (m *MockTX) QueryxContext(ctx context.Context, query string, args ...any) (*sqlx.Rows, error) {
 	return nil, nil
 }
@@ -116,7 +122,7 @@ func TestUser(id string) *entity.User {
 	now := time.Now().UTC()
 	return entity.UnmarshalUserFromDB(
 		id, "cognito", "cognito-sub-123",
-		"test@example.com", "Test User", "male",
+		"test@example.com", "Test", "User", "male",
 		nil, valueobject.UserRoleClient,
 		now, now, nil,
 	)

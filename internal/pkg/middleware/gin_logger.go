@@ -124,7 +124,7 @@ func GinLogger(cfg LogConfig) gin.HandlerFunc {
 			fullPath = path + "?" + maskQuerySensitive(raw, sensitiveSet)
 		}
 		errorMsg := c.Errors.ByType(gin.ErrorTypePrivate).String()
-		requestID := getRequestID(c)
+		requestID := c.GetHeader(RequestIDHeader)
 
 		l := cfg.Logger.With(
 			"request_id", requestID,

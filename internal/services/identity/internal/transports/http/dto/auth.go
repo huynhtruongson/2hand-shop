@@ -3,10 +3,11 @@ package dto
 import "github.com/huynhtruongson/2hand-shop/internal/services/identity/internal/application/auth"
 
 type SignUpRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Name     string `json:"name" binding:"required"`
-	Password string `json:"password" binding:"required"`
-	Gender   string `json:"gender" binding:"required,oneof=male female"`
+	Email     string `json:"email" binding:"required,email"`
+	FirstName string `json:"first_name" binding:"required"`
+	LastName  string `json:"last_name" binding:"required"`
+	Password  string `json:"password" binding:"required"`
+	Gender    string `json:"gender" binding:"required,oneof=male female"`
 }
 type SignUpResp struct {
 	UserID     string `json:"user_id"`
@@ -15,10 +16,11 @@ type SignUpResp struct {
 
 func (req SignUpRequest) ToSignUpParams() auth.SignUpParams {
 	return auth.SignUpParams{
-		Email:    req.Email,
-		Name:     req.Name,
-		Password: req.Password,
-		Gender:   req.Gender,
+		Email:     req.Email,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Password:  req.Password,
+		Gender:    req.Gender,
 	}
 }
 
